@@ -32,7 +32,7 @@ OUTPUT_ROOT = Path("data/outputs")
 
 app = FastAPI(title="voice2text", version="0.1.0")
 store = InMemoryStore()
-asr = AsrService(model="whisper-1")
+asr = AsrService()
 processor = BatchProcessor(store=store, asr_service=asr, max_concurrency=2)
 
 

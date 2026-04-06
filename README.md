@@ -1,6 +1,6 @@
 # voice2text
 
-一个基于 FastAPI + OpenAI Whisper API 的批量音频转录服务（当前版本不包含说话人分离）。
+一个基于 FastAPI + 阿里云百炼（DashScope）语音转写 API 的批量音频转录服务（当前版本不包含说话人分离）。
 
 ## 功能
 
@@ -27,7 +27,8 @@ requirements.txt
 创建 `.env` 或在 shell 中设置：
 
 ```bash
-export OPENAI_API_KEY="你的key"
+export DASHSCOPE_API_KEY="你的阿里云百炼 API Key"
+export DASHSCOPE_ASR_MODEL="fun-asr"  # 可选，不填默认 fun-asr
 ```
 
 ## 启动
@@ -67,5 +68,6 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 
 ## 说明
 
-- 当前转录模型默认 `whisper-1`。
+- 当前默认通过 OpenAI 兼容模式调用阿里云百炼语音模型，模型名默认 `fun-asr`，也可通过 `DASHSCOPE_ASR_MODEL` 覆盖。
+- 默认 Base URL 为 `https://dashscope.aliyuncs.com/compatible-mode/v1`，如需国际站可按阿里云文档替换。
 - 个人使用场景可先采用该版本，后续可扩展：SRT 导出、批量 zip 下载、失败重试、任务持久化数据库等。
