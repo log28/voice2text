@@ -24,7 +24,7 @@ requirements.txt
 
 ## 环境变量
 
-创建 `.env` 或在 shell 中设置：
+创建 `.env`（会自动加载）或在 shell 中设置：
 
 ```bash
 export DASHSCOPE_API_KEY="你的阿里云百炼 API Key"

@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 from openai import OpenAI
+from dotenv import load_dotenv
 
 
 class AsrService:
@@ -19,6 +20,9 @@ class AsrService:
         base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
     ) -> None:
         """初始化阿里云百炼兼容客户端并读取环境变量。"""
+        # 自动加载项目根目录下的 .env，方便本地开发直接配置密钥。
+        load_dotenv()
+
         api_key = os.getenv("DASHSCOPE_API_KEY")
         if not api_key:
             raise RuntimeError("DASHSCOPE_API_KEY is required")
