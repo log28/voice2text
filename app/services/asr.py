@@ -39,7 +39,8 @@ class AsrService:
         return self._extract_text(result_payload)
 
     def _submit_task(self, local_uri: str) -> str:
-        payload = {"model": self.model, "file_urls": [local_uri]}
+        # DashScope ASR transcription endpoint expects file URLs in `input.file_urls`.
+        payload = {"model": self.model, "input": {"file_urls": [local_uri]}}
         response = self._request_json(
             "POST",
             f"{self.base_url}/services/audio/asr/transcription",
