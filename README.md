@@ -96,6 +96,20 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 - 若未配置 OSS，可再配置 `PUBLIC_FILE_BASE_URL` 提交公网可访问的 `http(s)` 文件 URL。
 - 为避免把本地 `file://` 提交到云端导致 `DECODE_ERROR`/拉取失败，服务默认会直接报错并提示你配置 OSS 或 `PUBLIC_FILE_BASE_URL`。
 - 仅当你确认当前账号/接口支持 `file://` 输入时，才设置 `ALLOW_LOCAL_FILE_URI=true` 绕过该保护。
+- 如果 `GET /batches/{batch_id}` 里出现 `ASR input URL is local file://`，可按下面最小配置修复：
+
+```bash
+# 方案 A（推荐）：配置 OSS 临时签名 URL
+export OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com"
+export OSS_BUCKET="<your-bucket>"
+export OSS_ACCESS_KEY_ID="<your-ak>"
+export OSS_ACCESS_KEY_SECRET="<your-sk>"
+
+# 方案 B：用公网 HTTP(S) 地址暴露上传目录
+export PUBLIC_FILE_BASE_URL="https://<your-domain>/public/uploads"
+```
+
+  改完后请重启服务（例如重启 `uvicorn`），再重新上传音频。
 - 服务已挂载静态目录 `GET /public/uploads/...`（映射到 `data/uploads/`），你可以配合反向代理或内网穿透（如 ngrok）提供公网访问地址。
 - 若报错中出现 `base_url`/`region` 相关信息，请核对 `DASHSCOPE_BASE_URL` 与 `DASHSCOPE_API_KEY` 是否同地域（中国站/国际站）。
 - 如果任务长时间停在 `running`，可先把 `DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS` 调小（例如 60~120）让任务尽快失败并查看错误详情；常见原因是输入 URL 不可访问或模型/地域不匹配。
