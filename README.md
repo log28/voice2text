@@ -32,6 +32,14 @@ export DASHSCOPE_ASR_MODEL="fun-asr"  # 可选，不填默认 fun-asr
 export DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/api/v1"  # 可选，国际站改为 dashscope-intl
 export DASHSCOPE_TASK_POLL_INTERVAL_SECONDS="2"  # 可选，任务状态轮询间隔
 export DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS="120" # 可选，单任务最长等待时长（秒）
+export OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com"         # 推荐：OSS Endpoint
+export OSS_BUCKET="<你的 bucket 名>"                                 # 推荐：用于临时存放上传音频
+export OSS_ACCESS_KEY_ID="<你的 AK>"
+export OSS_ACCESS_KEY_SECRET="<你的 SK>"
+export OSS_PREFIX="voice2text/uploads"                              # 可选，OSS 对象前缀
+export OSS_SIGNED_URL_EXPIRE_SECONDS="3600"                         # 可选，签名 URL 有效期
+export PUBLIC_FILE_BASE_URL="https://<你的公网域名>/public/uploads"  # 备选，供 ASR 服务拉取音频
+export UPLOAD_ROOT_DIR="/abs/path/to/voice2text/data/uploads"       # 可选，默认项目 data/uploads
 ```
 
 ## 启动
@@ -84,5 +92,8 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 - 如果 job 直接失败且错误为 `404`，通常是当前模型在你的账号/地域不可用。请改用可用模型并重启服务，例如设置 `DASHSCOPE_ASR_MODEL=fun-asr`（或你控制台可用的模型名）。
 - 如果报错 `AccessDenied` 且提示 `current user api does not support synchronous calls`，说明你的账号不支持同步模式。代码已默认在提交转写任务时加上 `X-DashScope-Async: enable`，强制走异步任务接口；更新到最新代码并重启服务即可。
 - 本项目使用 DashScope 原生 ASR 接口，内部会把本地文件路径转换为 `file://` URI 后提交异步任务。
+- 更推荐配置 OSS（`OSS_*`）：服务会先把本地文件上传到 OSS，再生成临时签名 URL 给 ASR 拉取；这样不需要把 bucket 设为公网读。
+- 若未配置 OSS，可再配置 `PUBLIC_FILE_BASE_URL` 提交公网可访问的 `http(s)` 文件 URL；都未配置时会回退 `file://`，但云端 ASR 往往无法访问本地路径而失败。
+- 服务已挂载静态目录 `GET /public/uploads/...`（映射到 `data/uploads/`），你可以配合反向代理或内网穿透（如 ngrok）提供公网访问地址。
 - 若报错中出现 `base_url`/`region` 相关信息，请核对 `DASHSCOPE_BASE_URL` 与 `DASHSCOPE_API_KEY` 是否同地域（中国站/国际站）。
 - 如果任务长时间停在 `running`，可先把 `DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS` 调小（例如 60~120）让任务尽快失败并查看错误详情；常见原因是输入 URL 不可访问或模型/地域不匹配。

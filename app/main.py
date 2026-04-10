@@ -14,6 +14,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.models.schemas import (
     BatchInfo,
@@ -32,8 +33,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data"
 UPLOAD_ROOT = DATA_ROOT / "uploads"
 OUTPUT_ROOT = DATA_ROOT / "outputs"
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="voice2text", version="0.1.0")
+app.mount("/public/uploads", StaticFiles(directory=UPLOAD_ROOT), name="public_uploads")
 store = InMemoryStore()
 asr = AsrService()
 processor = BatchProcessor(store=store, asr_service=asr, max_concurrency=2)
