@@ -1,15 +1,12 @@
-"""ASR service wrapper.
-
-把具体的阿里云百炼（DashScope）语音识别调用集中在一个类里，
-并保持与原有调用方一致的接口，方便后续替换为其他提供商。
-"""
+"""ASR service wrapper using DashScope native transcription API."""
 
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
+from urllib.request import Request, urlopen
 
-from openai import OpenAI
 from dotenv import load_dotenv
 
 
@@ -17,7 +14,7 @@ class AsrService:
     def __init__(
         self,
         model: str | None = None,
-        base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        base_url: str | None = None,
     ) -> None:
         """初始化阿里云百炼兼容客户端并读取环境变量。"""
         # 自动加载项目根目录下的 .env，方便本地开发直接配置密钥。
@@ -27,14 +24,71 @@ class AsrService:
         if not api_key:
             raise RuntimeError("DASHSCOPE_API_KEY is required")
 
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.api_key = api_key
+        self.base_url = (base_url or os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/api/v1")).rstrip("/")
+        # 默认模型使用 fun-asr，可通过环境变量覆盖。
         self.model = model or os.getenv("DASHSCOPE_ASR_MODEL", "fun-asr")
 
     def transcribe(self, file_path: Path) -> str:
-        """将单个音频文件转录为文本。"""
-        with file_path.open("rb") as audio_file:
-            response = self.client.audio.transcriptions.create(
-                model=self.model,
-                file=audio_file,
-            )
-        return response.text
+        """将单个本地音频文件转录为文本。"""
+        local_uri = f"file://{file_path.resolve()}"
+        task_id = self._submit_task(local_uri)
+        result_payload = self._wait_task(task_id)
+        return self._extract_text(result_payload)
+
+    def _submit_task(self, local_uri: str) -> str:
+        payload = {"model": self.model, "file_urls": [local_uri]}
+        response = self._request_json(
+            "POST",
+            f"{self.base_url}/services/audio/asr/transcription",
+            payload=payload,
+        )
+        output = response.get("output") if isinstance(response, dict) else None
+        task_id = output.get("task_id") if isinstance(output, dict) else None
+        if not task_id:
+            raise RuntimeError(f"ASR submit missing task_id. response='{response}'")
+        return str(task_id)
+
+    def _wait_task(self, task_id: str) -> dict:
+        response = self._request_json("GET", f"{self.base_url}/tasks/{task_id}")
+        output = response.get("output") if isinstance(response, dict) else None
+        status = output.get("task_status") if isinstance(output, dict) else None
+        if status != "SUCCEEDED":
+            raise RuntimeError(f"ASR task failed. task_id='{task_id}', status='{status}', response='{response}'")
+        return response
+
+    def _request_json(self, method: str, url: str, payload: dict | None = None) -> dict:
+        data = json.dumps(payload).encode("utf-8") if payload is not None else None
+        request = Request(url, data=data, method=method)
+        request.add_header("Authorization", f"Bearer {self.api_key}")
+        request.add_header("Content-Type", "application/json")
+        try:
+            with urlopen(request, timeout=120) as response:  # noqa: S310
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(f"DashScope request failed: method='{method}', url='{url}', detail='{exc}'") from exc
+
+    @staticmethod
+    def _extract_text(transcription_response: dict) -> str:
+        output = transcription_response.get("output")
+        results = []
+        if isinstance(output, dict):
+            results = output.get("results") or []
+
+        texts: list[str] = []
+        for item in results:
+            if isinstance(item, dict):
+                transcription_url = item.get("transcription_url")
+            if not transcription_url:
+                continue
+            with urlopen(transcription_url) as response:  # noqa: S310
+                payload = json.loads(response.read().decode("utf-8"))
+            sentence_list = payload.get("transcripts", [])
+            for sentence in sentence_list:
+                text = sentence.get("text")
+                if text:
+                    texts.append(str(text))
+
+        if not texts:
+            raise RuntimeError(f"ASR completed but empty transcript: {transcription_response}")
+        return "\n".join(texts)
