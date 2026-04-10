@@ -60,9 +60,13 @@ class AsrService:
 
     def _validate_source_url(self, source_url: str) -> None:
         if source_url.startswith("file://") and not self.allow_local_file_uri:
+            has_oss_config = self._oss_enabled()
+            has_public_base = bool(self.public_file_base_url)
             raise RuntimeError(
                 "ASR input URL is local file:// which cloud ASR usually cannot fetch. "
                 f"source_url='{source_url}'. "
+                f"Current config: OSS enabled={has_oss_config}, PUBLIC_FILE_BASE_URL set={has_public_base}, "
+                f"UPLOAD_ROOT_DIR='{self.upload_root}'. "
                 "Please configure OSS signed URL (OSS_ENDPOINT / OSS_BUCKET / OSS_ACCESS_KEY_ID / "
                 "OSS_ACCESS_KEY_SECRET) or set PUBLIC_FILE_BASE_URL to a public HTTP(S) uploads URL. "
                 "If your account really supports file://, set ALLOW_LOCAL_FILE_URI=true to bypass this guard."
