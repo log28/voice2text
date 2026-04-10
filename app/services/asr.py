@@ -11,6 +11,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+import oss2
 from dotenv import load_dotenv
 
 
