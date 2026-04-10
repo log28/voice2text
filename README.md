@@ -29,6 +29,7 @@ requirements.txt
 ```bash
 export DASHSCOPE_API_KEY="你的阿里云百炼 API Key"
 export DASHSCOPE_ASR_MODEL="fun-asr"  # 可选，不填默认 fun-asr
+export DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"  # 可选，国际站改为 dashscope-intl
 ```
 
 ## 启动
@@ -71,3 +72,13 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 - 当前默认通过 OpenAI 兼容模式调用阿里云百炼语音模型，模型名默认 `fun-asr`，也可通过 `DASHSCOPE_ASR_MODEL` 覆盖。
 - 默认 Base URL 为 `https://dashscope.aliyuncs.com/compatible-mode/v1`，如需国际站可按阿里云文档替换。
 - 个人使用场景可先采用该版本，后续可扩展：SRT 导出、批量 zip 下载、失败重试、任务持久化数据库等。
+
+## 常见问题：看不到 output 文件
+
+- 输出目录名是 `data/outputs/`（复数），不是 `output/`。
+- `POST /batches` 返回时任务通常还是 `queued`，此时 txt 文件**还未生成**。
+- 请先轮询 `GET /batches/{batch_id}`，当 job 状态变成 `succeeded` 后，再到该 job 的 `output_path` 查文件，或调用 `GET /jobs/{job_id}/download` 下载。
+- 现在服务会把文件固定写到项目根目录下的 `data/outputs/`，与启动 `uvicorn` 的当前目录无关。
+- 如果 job 直接失败且错误为 `404`，通常是当前模型在你的账号/地域不可用。请改用可用模型并重启服务，例如设置 `DASHSCOPE_ASR_MODEL=fun-asr`（或你控制台可用的模型名）。
+- 本项目使用的是 OpenAI 兼容接口 `audio.transcriptions.create(file=...)`，上传的是二进制文件本体，不是 `file_urls`；因此你看到 `upload_path` 是本地路径本身并不构成错误。
+- 若报错中出现 `base_url`/`region` 相关信息，请核对 `DASHSCOPE_BASE_URL` 与 `DASHSCOPE_API_KEY` 是否同地域（中国站/国际站）。
