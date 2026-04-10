@@ -63,4 +63,18 @@ class AsrService:
             message = body.get("message") or body.get("code")
             if message:
                 return str(message)
+        response = getattr(exc, "response", None)
+        if response is not None:
+            try:
+                payload = response.json()
+                if isinstance(payload, dict):
+                    message = payload.get("message") or payload.get("code") or payload.get("detail")
+                    if message:
+                        return str(message)
+                    return str(payload)
+            except Exception:  # noqa: BLE001
+                pass
+            text = getattr(response, "text", None)
+            if text:
+                return str(text)[:500]
         return str(exc)

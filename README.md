@@ -82,3 +82,4 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 - 如果 job 直接失败且错误为 `404`，通常是当前模型在你的账号/地域不可用。请改用可用模型并重启服务，例如设置 `DASHSCOPE_ASR_MODEL=fun-asr`（或你控制台可用的模型名）。
 - 本项目使用的是 OpenAI 兼容接口 `audio.transcriptions.create(file=...)`，上传的是二进制文件本体，不是 `file_urls`；因此你看到 `upload_path` 是本地路径本身并不构成错误。
 - 若报错中出现 `base_url`/`region` 相关信息，请核对 `DASHSCOPE_BASE_URL` 与 `DASHSCOPE_API_KEY` 是否同地域（中国站/国际站）。
+- 若 404 持续且模型确定可用，可能是该模型在你的环境下不支持 OpenAI 兼容语音转写路径；请按百炼文档改用 DashScope 原生 ASR 调用方式（`Transcription.async_call` + `file_urls`）。
