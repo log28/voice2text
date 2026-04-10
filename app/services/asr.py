@@ -48,13 +48,25 @@ class AsrService:
         # 轮询参数可按需通过环境变量调整。
         self.poll_interval_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_INTERVAL_SECONDS", "2"))
         self.poll_timeout_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS", "120"))
+        self.allow_local_file_uri = os.getenv("ALLOW_LOCAL_FILE_URI", "").strip().lower() in {"1", "true", "yes", "on"}
 
     def transcribe(self, file_path: Path) -> str:
         """将单个本地音频文件转录为文本。"""
         source_url = self._build_input_url(file_path)
+        self._validate_source_url(source_url)
         task_id = self._submit_task(source_url)
-        result_payload = self._wait_task(task_id)
+        result_payload = self._wait_task(task_id, source_url)
         return self._extract_text(result_payload)
+
+    def _validate_source_url(self, source_url: str) -> None:
+        if source_url.startswith("file://") and not self.allow_local_file_uri:
+            raise RuntimeError(
+                "ASR input URL is local file:// which cloud ASR usually cannot fetch. "
+                f"source_url='{source_url}'. "
+                "Please configure OSS signed URL (OSS_ENDPOINT / OSS_BUCKET / OSS_ACCESS_KEY_ID / "
+                "OSS_ACCESS_KEY_SECRET) or set PUBLIC_FILE_BASE_URL to a public HTTP(S) uploads URL. "
+                "If your account really supports file://, set ALLOW_LOCAL_FILE_URI=true to bypass this guard."
+            )
 
     def _build_input_url(self, file_path: Path) -> str:
         resolved = file_path.resolve()
@@ -126,7 +138,7 @@ class AsrService:
             raise RuntimeError(f"ASR submit missing task_id. response='{response}'")
         return str(task_id)
 
-    def _wait_task(self, task_id: str) -> dict:
+    def _wait_task(self, task_id: str, source_url: str) -> dict:
         start = time.monotonic()
         terminal_succeeded = "SUCCEEDED"
         terminal_failed = {"FAILED", "CANCELED"}
@@ -145,7 +157,7 @@ class AsrService:
             if status_text in terminal_failed:
                 raise RuntimeError(
                     "ASR task failed. "
-                    f"task_id='{task_id}', status='{status_text}', response='{response}'. "
+                    f"task_id='{task_id}', status='{status_text}', source_url='{source_url}', response='{response}'. "
                     "Hint: prefer OSS signed URL (OSS_* env) or PUBLIC_FILE_BASE_URL instead of local file://."
                 )
 
