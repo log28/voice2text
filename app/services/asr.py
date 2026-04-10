@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import json
 import time
+import importlib.util
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -39,7 +40,7 @@ class AsrService:
         self.oss_access_key_secret = os.getenv("OSS_ACCESS_KEY_SECRET", "").strip()
         self.oss_prefix = os.getenv("OSS_PREFIX", "voice2text/uploads").strip().strip("/")
         self.oss_signed_url_expire_seconds = int(os.getenv("OSS_SIGNED_URL_EXPIRE_SECONDS", "3600"))
-        self._oss_bucket: oss2.Bucket | None = None
+        self._oss_bucket = None
         # 如果配置了对外可访问的上传目录 URL，则优先提交公网 URL（推荐）。
         self.public_file_base_url = os.getenv("PUBLIC_FILE_BASE_URL", "").rstrip("/")
         default_upload_root = Path(__file__).resolve().parents[2] / "data" / "uploads"
@@ -80,9 +81,15 @@ class AsrService:
             ]
         )
 
-    def _get_oss_bucket(self) -> oss2.Bucket:
+    def _get_oss_bucket(self):
         if self._oss_bucket is not None:
             return self._oss_bucket
+        if importlib.util.find_spec("oss2") is None:
+            raise RuntimeError(
+                "OSS is configured but dependency 'oss2' is not installed. "
+                "Please run: pip install -r requirements.txt"
+            )
+        import oss2
         auth = oss2.Auth(self.oss_access_key_id, self.oss_access_key_secret)
         self._oss_bucket = oss2.Bucket(auth, self.oss_endpoint, self.oss_bucket_name)
         return self._oss_bucket
