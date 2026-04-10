@@ -32,7 +32,7 @@ class AsrService:
         self.model = model or os.getenv("DASHSCOPE_ASR_MODEL", "fun-asr")
         # 轮询参数可按需通过环境变量调整。
         self.poll_interval_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_INTERVAL_SECONDS", "2"))
-        self.poll_timeout_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS", "600"))
+        self.poll_timeout_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS", "120"))
 
     def transcribe(self, file_path: Path) -> str:
         """将单个本地音频文件转录为文本。"""
@@ -80,7 +80,9 @@ class AsrService:
                 raise RuntimeError(
                     "ASR task timeout. "
                     f"task_id='{task_id}', elapsed_seconds={elapsed:.1f}, "
-                    f"last_status='{status_text}', response='{last_response}'"
+                    f"last_status='{status_text}', response='{last_response}'. "
+                    "Hint: if you submitted a local `file://` path, make sure your DashScope account/endpoint "
+                    "supports that input mode; otherwise prefer a publicly accessible file URL."
                 )
 
             # 未知状态也继续轮询，避免临时状态变化导致误判失败。
