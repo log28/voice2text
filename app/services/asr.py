@@ -49,14 +49,20 @@ class AsrService:
         self.poll_interval_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_INTERVAL_SECONDS", "2"))
         self.poll_timeout_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS", "120"))
         self.allow_local_file_uri = os.getenv("ALLOW_LOCAL_FILE_URI", "").strip().lower() in {"1", "true", "yes", "on"}
+        self.delete_oss_temp_after_asr = (
+            os.getenv("OSS_DELETE_TEMP_AFTER_ASR", "true").strip().lower() in {"1", "true", "yes", "on"}
+        )
 
     def transcribe(self, file_path: Path) -> str:
         """将单个本地音频文件转录为文本。"""
-        source_url = self._build_input_url(file_path)
+        source_url, oss_object_key = self._build_input_url(file_path)
         self._validate_source_url(source_url)
-        task_id = self._submit_task(source_url)
-        result_payload = self._wait_task(task_id, source_url)
-        return self._extract_text(result_payload)
+        try:
+            task_id = self._submit_task(source_url)
+            result_payload = self._wait_task(task_id, source_url)
+            return self._extract_text(result_payload)
+        finally:
+            self._delete_oss_temp_object(oss_object_key)
 
     def _validate_source_url(self, source_url: str) -> None:
         if source_url.startswith("file://") and not self.allow_local_file_uri:
@@ -72,20 +78,21 @@ class AsrService:
                 "If your account really supports file://, set ALLOW_LOCAL_FILE_URI=true to bypass this guard."
             )
 
-    def _build_input_url(self, file_path: Path) -> str:
+    def _build_input_url(self, file_path: Path) -> tuple[str, str | None]:
         resolved = file_path.resolve()
         if self._oss_enabled():
-            return self._upload_to_oss_and_sign_url(resolved)
+            signed_url, object_key = self._upload_to_oss_and_sign_url(resolved)
+            return signed_url, object_key
         if self.public_file_base_url:
             try:
                 relative = resolved.relative_to(self.upload_root)
             except ValueError:
                 # 仅当文件在上传目录下时才拼接公网 URL，否则回退 file://。
-                return resolved.as_uri()
+                return resolved.as_uri(), None
             relative_url = quote(relative.as_posix(), safe="/")
-            return f"{self.public_file_base_url}/{relative_url}"
+            return f"{self.public_file_base_url}/{relative_url}", None
         # 未配置公网地址时只能用本地 file://（很多云端 ASR 服务不可访问，建议配置 PUBLIC_FILE_BASE_URL）。
-        return resolved.as_uri()
+        return resolved.as_uri(), None
 
     def _oss_enabled(self) -> bool:
         return all(
@@ -110,13 +117,23 @@ class AsrService:
         self._oss_bucket = oss2.Bucket(auth, self.oss_endpoint, self.oss_bucket_name)
         return self._oss_bucket
 
-    def _upload_to_oss_and_sign_url(self, file_path: Path) -> str:
+    def _upload_to_oss_and_sign_url(self, file_path: Path) -> tuple[str, str]:
         bucket = self._get_oss_bucket()
         object_key = self._build_oss_object_key(file_path)
         with file_path.open("rb") as fp:
             bucket.put_object(object_key, fp)
         # 通过签名 URL 给 DashScope 拉取，避免把 bucket 设成公网读。
-        return bucket.sign_url("GET", object_key, self.oss_signed_url_expire_seconds)
+        return bucket.sign_url("GET", object_key, self.oss_signed_url_expire_seconds), object_key
+
+    def _delete_oss_temp_object(self, object_key: str | None) -> None:
+        if not object_key or not self.delete_oss_temp_after_asr or not self._oss_enabled():
+            return
+        bucket = self._get_oss_bucket()
+        try:
+            bucket.delete_object(object_key)
+        except Exception:  # noqa: BLE001
+            # 删除临时对象失败不影响主流程，避免覆盖 ASR 成功结果。
+            pass
 
     def _build_oss_object_key(self, file_path: Path) -> str:
         try:

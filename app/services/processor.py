@@ -29,13 +29,20 @@ class BatchProcessor:
 
     async def _process_single_job(self, job: JobInfo) -> None:
         """处理单个 job：更新状态 -> 调 ASR -> 持久化文本。"""
+        upload_path = Path(job.upload_path)
         self.store.update_job_status(job.job_id, JobStatus.PROCESSING)
         try:
             # ASR SDK 调用是阻塞 IO，放到线程池避免卡住 event loop。
-            text = await asyncio.to_thread(self.asr_service.transcribe, Path(job.upload_path))
+            text = await asyncio.to_thread(self.asr_service.transcribe, upload_path)
             output_path = Path(job.output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(text, encoding="utf-8")
             self.store.update_job_status(job.job_id, JobStatus.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
             self.store.update_job_status(job.job_id, JobStatus.FAILED, str(exc))
+        finally:
+            # 上传文件仅用于一次性转写，任务结束后删除本地临时文件。
+            try:
+                upload_path.unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass

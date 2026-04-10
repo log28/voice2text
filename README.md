@@ -38,6 +38,7 @@ export OSS_ACCESS_KEY_ID="<你的 AK>"
 export OSS_ACCESS_KEY_SECRET="<你的 SK>"
 export OSS_PREFIX="voice2text/uploads"                              # 可选，OSS 对象前缀
 export OSS_SIGNED_URL_EXPIRE_SECONDS="3600"                         # 可选，签名 URL 有效期
+export OSS_DELETE_TEMP_AFTER_ASR="true"                             # 可选，ASR 完成后删除 OSS 临时对象（默认 true）
 export PUBLIC_FILE_BASE_URL="https://<你的公网域名>/public/uploads"  # 备选，供 ASR 服务拉取音频
 export UPLOAD_ROOT_DIR="/abs/path/to/voice2text/data/uploads"       # 可选，默认项目 data/uploads
 ```
@@ -93,6 +94,7 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 - 如果报错 `AccessDenied` 且提示 `current user api does not support synchronous calls`，说明你的账号不支持同步模式。代码已默认在提交转写任务时加上 `X-DashScope-Async: enable`，强制走异步任务接口；更新到最新代码并重启服务即可。
 - 本项目使用 DashScope 原生 ASR 接口。若已配置 OSS 或 `PUBLIC_FILE_BASE_URL`，会提交可公网访问的 URL；否则会得到本地 `file://` URL。
 - 更推荐配置 OSS（`OSS_*`）：服务会先把本地文件上传到 OSS，再生成临时签名 URL 给 ASR 拉取；这样不需要把 bucket 设为公网读。
+- 推荐流程：`上传 -> 私有 OSS -> 签名 URL -> ASR -> 删除临时文件`。服务会在单任务结束后清理本地上传文件；并在启用 OSS 且 `OSS_DELETE_TEMP_AFTER_ASR=true` 时删除 OSS 临时对象。
 - 若未配置 OSS，可再配置 `PUBLIC_FILE_BASE_URL` 提交公网可访问的 `http(s)` 文件 URL。
 - 为避免把本地 `file://` 提交到云端导致 `DECODE_ERROR`/拉取失败，服务默认会直接报错并提示你配置 OSS 或 `PUBLIC_FILE_BASE_URL`。
 - 仅当你确认当前账号/接口支持 `file://` 输入时，才设置 `ALLOW_LOCAL_FILE_URI=true` 绕过该保护。
