@@ -30,6 +30,8 @@ requirements.txt
 export DASHSCOPE_API_KEY="你的阿里云百炼 API Key"
 export DASHSCOPE_ASR_MODEL="fun-asr"  # 可选，不填默认 fun-asr
 export DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/api/v1"  # 可选，国际站改为 dashscope-intl
+export DASHSCOPE_TASK_POLL_INTERVAL_SECONDS="2"  # 可选，任务状态轮询间隔
+export DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS="120" # 可选，单任务最长等待时长（秒）
 ```
 
 ## 启动
@@ -83,3 +85,4 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 - 如果报错 `AccessDenied` 且提示 `current user api does not support synchronous calls`，说明你的账号不支持同步模式。代码已默认在提交转写任务时加上 `X-DashScope-Async: enable`，强制走异步任务接口；更新到最新代码并重启服务即可。
 - 本项目使用 DashScope 原生 ASR 接口，内部会把本地文件路径转换为 `file://` URI 后提交异步任务。
 - 若报错中出现 `base_url`/`region` 相关信息，请核对 `DASHSCOPE_BASE_URL` 与 `DASHSCOPE_API_KEY` 是否同地域（中国站/国际站）。
+- 如果任务长时间停在 `running`，可先把 `DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS` 调小（例如 60~120）让任务尽快失败并查看错误详情；常见原因是输入 URL 不可访问或模型/地域不匹配。
