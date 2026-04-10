@@ -27,8 +27,11 @@ from app.services.asr import AsrService
 from app.services.processor import BatchProcessor
 from app.services.store import InMemoryStore
 
-UPLOAD_ROOT = Path("data/uploads")
-OUTPUT_ROOT = Path("data/outputs")
+# 固定数据目录到项目根路径，避免因启动目录不同导致文件写到意外位置。
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = PROJECT_ROOT / "data"
+UPLOAD_ROOT = DATA_ROOT / "uploads"
+OUTPUT_ROOT = DATA_ROOT / "outputs"
 
 app = FastAPI(title="voice2text", version="0.1.0")
 store = InMemoryStore()
