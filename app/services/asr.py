@@ -65,6 +65,10 @@ class AsrService:
         request = Request(url, data=data, method=method)
         request.add_header("Authorization", f"Bearer {self.api_key}")
         request.add_header("Content-Type", "application/json")
+        # 百炼 ASR 推荐使用异步任务模式；部分账号不支持同步调用（会返回 AccessDenied）。
+        # 该请求头会强制服务端走异步任务，随后通过 /tasks/{task_id} 轮询结果。
+        if method.upper() == "POST" and "/services/audio/asr/transcription" in url:
+            request.add_header("X-DashScope-Async", "enable")
         try:
             with urlopen(request, timeout=120) as response:  # noqa: S310
                 return json.loads(response.read().decode("utf-8"))
