@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import json
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
@@ -31,7 +32,8 @@ class AsrService:
 
     def transcribe(self, file_path: Path) -> str:
         """将单个本地音频文件转录为文本。"""
-        local_uri = f"file://{file_path.resolve()}"
+        # DashScope 的 file_urls 需要合法 URI，路径中的中文/空格必须做 percent-encode。
+        local_uri = file_path.resolve().as_uri()
         task_id = self._submit_task(local_uri)
         result_payload = self._wait_task(task_id)
         return self._extract_text(result_payload)
@@ -65,6 +67,11 @@ class AsrService:
         try:
             with urlopen(request, timeout=120) as response:  # noqa: S310
                 return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"DashScope request failed: method='{method}', url='{url}', status={exc.code}, detail='{detail}'"
+            ) from exc
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(f"DashScope request failed: method='{method}', url='{url}', detail='{exc}'") from exc
 
@@ -77,6 +84,7 @@ class AsrService:
 
         texts: list[str] = []
         for item in results:
+            transcription_url = None
             if isinstance(item, dict):
                 transcription_url = item.get("transcription_url")
             if not transcription_url:
