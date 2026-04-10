@@ -7,8 +7,10 @@ import json
 import time
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+import oss2
 from dotenv import load_dotenv
 
 
@@ -30,17 +32,78 @@ class AsrService:
         self.base_url = (base_url or os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/api/v1")).rstrip("/")
         # 默认模型使用 fun-asr，可通过环境变量覆盖。
         self.model = model or os.getenv("DASHSCOPE_ASR_MODEL", "fun-asr")
+        # 优先方案：上传到阿里云 OSS，再给 ASR 传签名 URL。
+        self.oss_endpoint = os.getenv("OSS_ENDPOINT", "").strip()
+        self.oss_bucket_name = os.getenv("OSS_BUCKET", "").strip()
+        self.oss_access_key_id = os.getenv("OSS_ACCESS_KEY_ID", "").strip()
+        self.oss_access_key_secret = os.getenv("OSS_ACCESS_KEY_SECRET", "").strip()
+        self.oss_prefix = os.getenv("OSS_PREFIX", "voice2text/uploads").strip().strip("/")
+        self.oss_signed_url_expire_seconds = int(os.getenv("OSS_SIGNED_URL_EXPIRE_SECONDS", "3600"))
+        self._oss_bucket: oss2.Bucket | None = None
+        # 如果配置了对外可访问的上传目录 URL，则优先提交公网 URL（推荐）。
+        self.public_file_base_url = os.getenv("PUBLIC_FILE_BASE_URL", "").rstrip("/")
+        default_upload_root = Path(__file__).resolve().parents[2] / "data" / "uploads"
+        self.upload_root = Path(os.getenv("UPLOAD_ROOT_DIR", str(default_upload_root))).resolve()
         # 轮询参数可按需通过环境变量调整。
         self.poll_interval_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_INTERVAL_SECONDS", "2"))
         self.poll_timeout_seconds = float(os.getenv("DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS", "120"))
 
     def transcribe(self, file_path: Path) -> str:
         """将单个本地音频文件转录为文本。"""
-        # DashScope 的 file_urls 需要合法 URI，路径中的中文/空格必须做 percent-encode。
-        local_uri = file_path.resolve().as_uri()
-        task_id = self._submit_task(local_uri)
+        source_url = self._build_input_url(file_path)
+        task_id = self._submit_task(source_url)
         result_payload = self._wait_task(task_id)
         return self._extract_text(result_payload)
+
+    def _build_input_url(self, file_path: Path) -> str:
+        resolved = file_path.resolve()
+        if self._oss_enabled():
+            return self._upload_to_oss_and_sign_url(resolved)
+        if self.public_file_base_url:
+            try:
+                relative = resolved.relative_to(self.upload_root)
+            except ValueError:
+                # 仅当文件在上传目录下时才拼接公网 URL，否则回退 file://。
+                return resolved.as_uri()
+            relative_url = quote(relative.as_posix(), safe="/")
+            return f"{self.public_file_base_url}/{relative_url}"
+        # 未配置公网地址时只能用本地 file://（很多云端 ASR 服务不可访问，建议配置 PUBLIC_FILE_BASE_URL）。
+        return resolved.as_uri()
+
+    def _oss_enabled(self) -> bool:
+        return all(
+            [
+                self.oss_endpoint,
+                self.oss_bucket_name,
+                self.oss_access_key_id,
+                self.oss_access_key_secret,
+            ]
+        )
+
+    def _get_oss_bucket(self) -> oss2.Bucket:
+        if self._oss_bucket is not None:
+            return self._oss_bucket
+        auth = oss2.Auth(self.oss_access_key_id, self.oss_access_key_secret)
+        self._oss_bucket = oss2.Bucket(auth, self.oss_endpoint, self.oss_bucket_name)
+        return self._oss_bucket
+
+    def _upload_to_oss_and_sign_url(self, file_path: Path) -> str:
+        bucket = self._get_oss_bucket()
+        object_key = self._build_oss_object_key(file_path)
+        with file_path.open("rb") as fp:
+            bucket.put_object(object_key, fp)
+        # 通过签名 URL 给 DashScope 拉取，避免把 bucket 设成公网读。
+        return bucket.sign_url("GET", object_key, self.oss_signed_url_expire_seconds)
+
+    def _build_oss_object_key(self, file_path: Path) -> str:
+        try:
+            relative_path = file_path.relative_to(self.upload_root).as_posix()
+        except ValueError:
+            relative_path = file_path.name
+        encoded_path = "/".join(quote(part, safe=".-_") for part in relative_path.split("/"))
+        if self.oss_prefix:
+            return f"{self.oss_prefix}/{encoded_path}"
+        return encoded_path
 
     def _submit_task(self, local_uri: str) -> str:
         # DashScope ASR transcription endpoint expects file URLs in `input.file_urls`.
@@ -73,7 +136,11 @@ class AsrService:
             if status_text == terminal_succeeded:
                 return response
             if status_text in terminal_failed:
-                raise RuntimeError(f"ASR task failed. task_id='{task_id}', status='{status_text}', response='{response}'")
+                raise RuntimeError(
+                    "ASR task failed. "
+                    f"task_id='{task_id}', status='{status_text}', response='{response}'. "
+                    "Hint: prefer OSS signed URL (OSS_* env) or PUBLIC_FILE_BASE_URL instead of local file://."
+                )
 
             elapsed = time.monotonic() - start
             if elapsed >= self.poll_timeout_seconds:
@@ -82,7 +149,7 @@ class AsrService:
                     f"task_id='{task_id}', elapsed_seconds={elapsed:.1f}, "
                     f"last_status='{status_text}', response='{last_response}'. "
                     "Hint: if you submitted a local `file://` path, make sure your DashScope account/endpoint "
-                    "supports that input mode; otherwise prefer a publicly accessible file URL."
+                    "supports that input mode; otherwise prefer OSS signed URL or a publicly accessible HTTP URL."
                 )
 
             # 未知状态也继续轮询，避免临时状态变化导致误判失败。
