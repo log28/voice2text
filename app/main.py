@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import os
 import uuid
+import zipfile
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.models.schemas import (
@@ -46,6 +47,12 @@ app.mount("/public/uploads", StaticFiles(directory=UPLOAD_ROOT), name="public_up
 store = InMemoryStore()
 asr = AsrService()
 processor = BatchProcessor(store=store, asr_service=asr, max_concurrency=2)
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> str:
+    """返回简化版前端页面。"""
+    return (PROJECT_ROOT / "app/web/index.html").read_text(encoding="utf-8")
 
 
 @app.get("/health")
@@ -160,3 +167,26 @@ def download_job_result(job_id: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="Result file missing")
 
     return FileResponse(path=output_path, media_type="text/plain", filename=output_path.name)
+
+
+@app.get("/batches/{batch_id}/download-succeeded-zip")
+def download_batch_succeeded_zip(batch_id: str) -> FileResponse:
+    """打包并下载该 batch 已成功转写的 txt 文件。"""
+    batch = store.get_batch(batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    jobs = store.get_jobs_by_batch(batch_id)
+    succeeded_jobs = [job for job in jobs if job.status == JobStatus.SUCCEEDED]
+    if not succeeded_jobs:
+        raise HTTPException(status_code=400, detail="No succeeded jobs to download")
+
+    zip_path = OUTPUT_ROOT / batch_id / f"{batch_id}_results.zip"
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for job in succeeded_jobs:
+            output_path = Path(job.output_path)
+            if output_path.exists():
+                zf.write(output_path, arcname=output_path.name)
+
+    return FileResponse(path=zip_path, media_type="application/zip", filename=zip_path.name)

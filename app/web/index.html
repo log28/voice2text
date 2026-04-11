@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>voice2text 批量转写</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --primary: #2563eb;
+        --ok: #16a34a;
+        --warn: #d97706;
+        --err: #dc2626;
+        --line: #e5e7eb;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .container {
+        max-width: 920px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 24px;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .tab {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        color: #374151;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      .tab.active {
+        background: #eef2ff;
+        color: #1d4ed8;
+        border-color: #c7d2fe;
+      }
+
+      .panel {
+        margin-top: 14px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        color: #fff;
+        background: var(--primary);
+        font-weight: 600;
+      }
+
+      button.secondary {
+        background: #4b5563;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      input[type="file"] {
+        border: 1px dashed #93c5fd;
+        border-radius: 10px;
+        padding: 12px;
+        background: #eff6ff;
+        width: 100%;
+      }
+
+      .meta {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .progress-wrap {
+        margin-top: 12px;
+      }
+
+      .progress-track {
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: #e5e7eb;
+      }
+
+      .progress-value {
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #2563eb, #06b6d4);
+        width: 0;
+        transition: width 0.25s ease;
+      }
+
+      .stats {
+        margin-top: 8px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: #374151;
+        font-size: 13px;
+      }
+
+      table {
+        margin-top: 12px;
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th, td {
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        padding: 10px 8px;
+      }
+
+      .status {
+        font-size: 12px;
+        border-radius: 999px;
+        padding: 2px 8px;
+        border: 1px solid;
+      }
+
+      .queued { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+      .processing { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+      .succeeded { color: #166534; border-color: #86efac; background: #f0fdf4; }
+      .failed { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
+
+      pre {
+        white-space: pre-wrap;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 10px;
+        padding: 12px;
+        font-size: 12px;
+        max-height: 320px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>voice2text</h1>
+        <p class="subtitle">批量上传音频，自动转写并实时查看任务进度。</p>
+
+        <div class="tabs">
+          <button class="tab active" id="tab-main">主页面</button>
+          <button class="tab" id="tab-debug">状态排查</button>
+        </div>
+
+        <section class="panel" id="panel-main">
+          <div class="row">
+            <input id="files" type="file" multiple accept="audio/*" />
+          </div>
+          <div class="row" style="margin-top: 10px">
+            <button id="upload-btn">开始批量转写</button>
+            <button id="download-all" class="secondary" disabled>下载已完成结果（ZIP）</button>
+          </div>
+          <div class="meta" id="batch-meta">未开始任务</div>
+
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div class="progress-value" id="progress"></div>
+            </div>
+            <div class="stats" id="stats"></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>文件</th>
+                <th>状态</th>
+                <th>结果</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-table"></tbody>
+          </table>
+        </section>
+
+        <section class="panel hidden" id="panel-debug">
+          <p class="subtitle">用于故障排查：查看原始状态与失败原因。</p>
+          <div class="row" style="margin: 8px 0">
+            <button id="refresh-debug" class="secondary">手动刷新</button>
+          </div>
+          <pre id="raw-json">暂无数据</pre>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const state = {
+        batchId: null,
+        timer: null,
+        data: null,
+      };
+
+      const el = {
+        files: document.getElementById("files"),
+        uploadBtn: document.getElementById("upload-btn"),
+        downloadAll: document.getElementById("download-all"),
+        batchMeta: document.getElementById("batch-meta"),
+        progress: document.getElementById("progress"),
+        stats: document.getElementById("stats"),
+        jobsTable: document.getElementById("jobs-table"),
+        rawJson: document.getElementById("raw-json"),
+        tabMain: document.getElementById("tab-main"),
+        tabDebug: document.getElementById("tab-debug"),
+        panelMain: document.getElementById("panel-main"),
+        panelDebug: document.getElementById("panel-debug"),
+        refreshDebug: document.getElementById("refresh-debug"),
+      };
+
+      function setTab(main) {
+        el.tabMain.classList.toggle("active", main);
+        el.tabDebug.classList.toggle("active", !main);
+        el.panelMain.classList.toggle("hidden", !main);
+        el.panelDebug.classList.toggle("hidden", main);
+      }
+
+      el.tabMain.addEventListener("click", () => setTab(true));
+      el.tabDebug.addEventListener("click", () => setTab(false));
+      el.refreshDebug.addEventListener("click", () => state.batchId && fetchBatch());
+
+      function render(batch) {
+        state.data = batch;
+        const total = batch.total_jobs || 0;
+        const done = (batch.succeeded || 0) + (batch.failed || 0);
+        const percent = total ? Math.floor((done / total) * 100) : 0;
+
+        el.batchMeta.textContent = `batch_id: ${batch.batch_id} ｜ 状态: ${batch.status}`;
+        el.progress.style.width = `${percent}%`;
+        el.stats.textContent = `进度 ${percent}% ｜ 总数 ${total} ｜ 排队 ${batch.queued} ｜ 转写中 ${batch.processing} ｜ 成功 ${batch.succeeded} ｜ 失败 ${batch.failed}`;
+
+        el.jobsTable.innerHTML = "";
+        for (const job of batch.jobs) {
+          const tr = document.createElement("tr");
+          const statusClass = ["queued", "processing", "succeeded", "failed"].includes(job.status) ? job.status : "queued";
+          tr.innerHTML = `
+            <td>${job.filename}</td>
+            <td><span class="status ${statusClass}">${job.status}</span></td>
+            <td>
+              ${job.status === "succeeded" ? `<a href="/jobs/${job.job_id}/download" target="_blank">下载 txt</a>` : "-"}
+              ${job.status === "failed" && job.error ? `<div style="color:#991b1b;font-size:12px;">${job.error}</div>` : ""}
+            </td>
+          `;
+          el.jobsTable.appendChild(tr);
+        }
+
+        el.rawJson.textContent = JSON.stringify(batch, null, 2);
+        el.downloadAll.disabled = batch.succeeded === 0;
+
+        if (done >= total && state.timer) {
+          clearInterval(state.timer);
+          state.timer = null;
+        }
+      }
+
+      async function fetchBatch() {
+        if (!state.batchId) return;
+        const res = await fetch(`/batches/${state.batchId}`);
+        if (!res.ok) return;
+        const batch = await res.json();
+        render(batch);
+      }
+
+      async function createBatch() {
+        const files = el.files.files;
+        if (!files.length) {
+          alert("请先选择音频文件");
+          return;
+        }
+
+        const formData = new FormData();
+        for (const file of files) {
+          formData.append("files", file);
+        }
+
+        el.uploadBtn.disabled = true;
+        try {
+          const res = await fetch("/batches", { method: "POST", body: formData });
+          if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err);
+          }
+
+          const data = await res.json();
+          state.batchId = data.batch_id;
+          el.batchMeta.textContent = `batch_id: ${data.batch_id} ｜ 状态: ${data.status}`;
+          await fetchBatch();
+
+          if (state.timer) clearInterval(state.timer);
+          state.timer = setInterval(fetchBatch, 2000);
+        } catch (error) {
+          alert(`创建任务失败: ${error.message}`);
+        } finally {
+          el.uploadBtn.disabled = false;
+        }
+      }
+
+      el.uploadBtn.addEventListener("click", createBatch);
+      el.downloadAll.addEventListener("click", () => {
+        if (!state.batchId) return;
+        window.open(`/batches/${state.batchId}/download-succeeded-zip`, "_blank");
+      });
+    </script>
+  </body>
+</html>
