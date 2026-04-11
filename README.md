@@ -53,6 +53,13 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+## Web 页面（简洁模式）
+
+启动后访问 `http://127.0.0.1:8000/`：
+
+- **主页面**：只保留批量上传、实时进度、单文件下载、成功结果 ZIP 下载。
+- **状态排查**：单独 Tab 展示原始 batch JSON 与失败原因，便于定位问题。
+
 ## API
 
 ### 1) 批量上传并创建任务
@@ -78,6 +85,10 @@ curl -X POST "http://127.0.0.1:8000/batches" \
 ### 4) 下载单文件 txt
 
 `GET /jobs/{job_id}/download`
+
+### 5) 下载 batch 内已成功结果（ZIP）
+
+`GET /batches/{batch_id}/download-succeeded-zip`
 
 ## 说明
 
