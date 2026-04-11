@@ -9,9 +9,11 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,11 +30,14 @@ from app.services.asr import AsrService
 from app.services.processor import BatchProcessor
 from app.services.store import InMemoryStore
 
+# 启动时自动加载项目根目录 .env，便于本地开发。
+load_dotenv()
+
 # 固定数据目录到项目根路径，避免因启动目录不同导致文件写到意外位置。
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data"
-UPLOAD_ROOT = DATA_ROOT / "uploads"
-OUTPUT_ROOT = DATA_ROOT / "outputs"
+UPLOAD_ROOT = Path(os.getenv("UPLOAD_ROOT_DIR", str(DATA_ROOT / "uploads"))).resolve()
+OUTPUT_ROOT = Path(os.getenv("OUTPUT_ROOT_DIR", str(DATA_ROOT / "outputs"))).resolve()
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
