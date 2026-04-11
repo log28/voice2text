@@ -63,6 +63,7 @@ uvicorn app.main:app --reload
 - `POST /batches`：批量上传并创建任务（表单字段 `files`）
 - `GET /batches/{batch_id}`：查询 batch 状态
 - `GET /jobs/{job_id}`：查询单文件结果
+- `POST /organize`：对转写文本做结构化梳理（摘要/关键点/TODO/标签）
 - `GET /jobs/{job_id}/download`：下载单文件 txt
 - `GET /batches/{batch_id}/download-succeeded-zip`：下载成功结果 ZIP
 
@@ -72,6 +73,13 @@ uvicorn app.main:app --reload
 curl -X POST "http://127.0.0.1:8000/batches" \
   -F "files=@/path/to/a.mp3" \
   -F "files=@/path/to/b.m4a"
+
+curl -X POST "http://127.0.0.1:8000/organize" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transcript": "今天我们讨论车载域控制器，先验证成本，再排期两周内做PoC",
+    "occurred_at": "2026-04-11T09:30:00Z"
+  }'
 ```
 
 ## 常见问题（精简）

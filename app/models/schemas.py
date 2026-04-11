@@ -79,3 +79,23 @@ class JobResultResponse(BaseModel):
     status: JobStatus
     text: str | None = None
     error: str | None = None
+
+
+class OrganizeTextRequest(BaseModel):
+    """转写文本整理请求。"""
+
+    transcript: str = Field(min_length=1, description="ASR 原始转写文本")
+    occurred_at: datetime | None = Field(default=None, description="可选：语音内容发生时间")
+
+
+class OrganizeTextResponse(BaseModel):
+    """转写文本整理结果。"""
+
+    time: str
+    scene: str
+    summary: str
+    key_points: list[str]
+    action_items: list[str]
+    tags: list[str]
+    transcript: str
+    markdown: str

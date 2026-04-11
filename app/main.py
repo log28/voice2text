@@ -26,8 +26,11 @@ from app.models.schemas import (
     JobInfo,
     JobResultResponse,
     JobStatus,
+    OrganizeTextRequest,
+    OrganizeTextResponse,
 )
 from app.services.asr import AsrService
+from app.services.organizer import TranscriptOrganizer
 from app.services.processor import BatchProcessor
 from app.services.store import InMemoryStore
 
@@ -47,6 +50,7 @@ app.mount("/public/uploads", StaticFiles(directory=UPLOAD_ROOT), name="public_up
 store = InMemoryStore()
 asr = AsrService()
 processor = BatchProcessor(store=store, asr_service=asr, max_concurrency=2)
+organizer = TranscriptOrganizer()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -151,6 +155,12 @@ def get_job_result(job_id: str) -> JobResultResponse:
         text=text,
         error=job.error,
     )
+
+
+@app.post("/organize", response_model=OrganizeTextResponse)
+def organize_transcript(payload: OrganizeTextRequest) -> OrganizeTextResponse:
+    """将 ASR 文本整理为结构化摘要和待办项。"""
+    return organizer.organize(transcript=payload.transcript, occurred_at=payload.occurred_at)
 
 
 @app.get("/jobs/{job_id}/download")
