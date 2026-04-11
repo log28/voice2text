@@ -4,3 +4,4 @@ __pycache__/
 .env
 data/uploads/
 data/outputs/
+.DS_Store
