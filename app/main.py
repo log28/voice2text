@@ -49,8 +49,8 @@ app = FastAPI(title="voice2text", version="0.1.0")
 app.mount("/public/uploads", StaticFiles(directory=UPLOAD_ROOT), name="public_uploads")
 store = InMemoryStore()
 asr = AsrService()
-processor = BatchProcessor(store=store, asr_service=asr, max_concurrency=2)
 organizer = TranscriptOrganizer()
+processor = BatchProcessor(store=store, asr_service=asr, organizer=organizer, max_concurrency=2)
 
 
 @app.get("/", response_class=HTMLResponse)
