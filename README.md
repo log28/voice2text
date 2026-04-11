@@ -1,21 +1,18 @@
 # voice2text
 
-一个基于 FastAPI + 阿里云百炼（DashScope）语音转写 API 的批量音频转录服务（当前版本不包含说话人分离）。
+一个基于 FastAPI + 阿里云百炼（DashScope）ASR 的批量音频转录服务（当前版本不含说话人分离）。
 
 ## 功能
 
-- 批量上传多个音频文件并转录
-- 任务级状态查询（batch/job）
-- 转录文本查询与下载
-- 本地落盘保存上传文件和输出文本
+- 批量上传多个音频并转录
+- 查询 batch/job 状态
+- 查询与下载转录文本（单文件 / 成功结果 ZIP）
+- 本地保存上传文件与输出文本
 
 ## 目录
 
 ```text
 app/
-  main.py
-  models/
-  services/
 data/
   uploads/
   outputs/
@@ -24,24 +21,30 @@ requirements.txt
 
 ## 环境变量
 
-创建 `.env`（服务启动时会自动加载）或在 shell 中设置：
+创建 `.env`（启动时自动加载）或在 shell 中设置：
 
 ```bash
-export DASHSCOPE_API_KEY="你的阿里云百炼 API Key"
-export DASHSCOPE_ASR_MODEL="fun-asr"  # 可选，不填默认 fun-asr
-export DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/api/v1"  # 可选，国际站改为 dashscope-intl
-export DASHSCOPE_TASK_POLL_INTERVAL_SECONDS="2"  # 可选，任务状态轮询间隔
-export DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS="120" # 可选，单任务最长等待时长（秒）
-export OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com"         # 推荐：OSS Endpoint
-export OSS_BUCKET="<你的 bucket 名>"                                 # 推荐：用于临时存放上传音频
-export OSS_ACCESS_KEY_ID="<你的 AK>"
-export OSS_ACCESS_KEY_SECRET="<你的 SK>"
-export OSS_PREFIX="voice2text/uploads"                              # 可选，OSS 对象前缀
-export OSS_SIGNED_URL_EXPIRE_SECONDS="3600"                         # 可选，签名 URL 有效期
-export OSS_DELETE_TEMP_AFTER_ASR="true"                             # 可选，ASR 完成后删除 OSS 临时对象（默认 true）
-export PUBLIC_FILE_BASE_URL="https://<你的公网域名>/public/uploads"  # 备选，供 ASR 服务拉取音频
-export UPLOAD_ROOT_DIR="/abs/path/to/voice2text/data/uploads"       # 可选，默认项目 data/uploads
-export OUTPUT_ROOT_DIR="/abs/path/to/voice2text/data/outputs"      # 可选，默认项目 data/outputs
+export DASHSCOPE_API_KEY="<你的 API Key>"
+export DASHSCOPE_ASR_MODEL="fun-asr"                              # 可选
+export DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/api/v1" # 可选
+export DASHSCOPE_TASK_POLL_INTERVAL_SECONDS="2"                   # 可选
+export DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS="120"                  # 可选
+
+# 推荐：配置 OSS，让 ASR 拉取临时签名 URL
+export OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com"
+export OSS_BUCKET="<bucket>"
+export OSS_ACCESS_KEY_ID="<ak>"
+export OSS_ACCESS_KEY_SECRET="<sk>"
+export OSS_PREFIX="voice2text/uploads"                            # 可选
+export OSS_SIGNED_URL_EXPIRE_SECONDS="3600"                       # 可选
+export OSS_DELETE_TEMP_AFTER_ASR="true"                           # 可选
+
+# 备选：提供公网可访问的上传目录地址
+export PUBLIC_FILE_BASE_URL="https://<你的域名>/public/uploads"
+
+# 本地目录（可选）
+export UPLOAD_ROOT_DIR="/abs/path/to/data/uploads"
+export OUTPUT_ROOT_DIR="/abs/path/to/data/outputs"
 ```
 
 ## 启动
@@ -53,20 +56,17 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-## Web 页面（简洁模式）
-
-启动后访问 `http://127.0.0.1:8000/`：
-
-- **主页面**：只保留批量上传、实时进度、单文件下载、成功结果 ZIP 下载。
-- **状态排查**：单独 Tab 展示原始 batch JSON 与失败原因，便于定位问题。
+访问：`http://127.0.0.1:8000/`
 
 ## API
 
-### 1) 批量上传并创建任务
+- `POST /batches`：批量上传并创建任务（表单字段 `files`）
+- `GET /batches/{batch_id}`：查询 batch 状态
+- `GET /jobs/{job_id}`：查询单文件结果
+- `GET /jobs/{job_id}/download`：下载单文件 txt
+- `GET /batches/{batch_id}/download-succeeded-zip`：下载成功结果 ZIP
 
-`POST /batches`
-
-表单字段：`files`（可多文件）
+示例：
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/batches" \
@@ -74,56 +74,10 @@ curl -X POST "http://127.0.0.1:8000/batches" \
   -F "files=@/path/to/b.m4a"
 ```
 
-### 2) 查询 batch 状态
+## 常见问题（精简）
 
-`GET /batches/{batch_id}`
-
-### 3) 查询单文件结果
-
-`GET /jobs/{job_id}`
-
-### 4) 下载单文件 txt
-
-`GET /jobs/{job_id}/download`
-
-### 5) 下载 batch 内已成功结果（ZIP）
-
-`GET /batches/{batch_id}/download-succeeded-zip`
-
-## 说明
-
-- 当前默认通过 DashScope 原生 ASR 调用语音模型，模型名默认 `fun-asr`，也可通过 `DASHSCOPE_ASR_MODEL` 覆盖。
-- 默认 Base URL 为 `https://dashscope.aliyuncs.com/api/v1`，如需国际站可按阿里云文档替换。
-- 个人使用场景可先采用该版本，后续可扩展：SRT 导出、批量 zip 下载、失败重试、任务持久化数据库等。
-
-## 常见问题：看不到 output 文件
-
-- 输出目录名是 `data/outputs/`（复数），不是 `output/`。
-- `POST /batches` 返回时任务通常还是 `queued`，此时 txt 文件**还未生成**。
-- 请先轮询 `GET /batches/{batch_id}`，当 job 状态变成 `succeeded` 后，再到该 job 的 `output_path` 查文件，或调用 `GET /jobs/{job_id}/download` 下载。
-- 现在服务会把文件固定写到项目根目录下的 `data/outputs/`，与启动 `uvicorn` 的当前目录无关。
-- 如果 job 直接失败且错误为 `404`，通常是当前模型在你的账号/地域不可用。请改用可用模型并重启服务，例如设置 `DASHSCOPE_ASR_MODEL=fun-asr`（或你控制台可用的模型名）。
-- 如果报错 `AccessDenied` 且提示 `current user api does not support synchronous calls`，说明你的账号不支持同步模式。代码已默认在提交转写任务时加上 `X-DashScope-Async: enable`，强制走异步任务接口；更新到最新代码并重启服务即可。
-- 本项目使用 DashScope 原生 ASR 接口。若已配置 OSS 或 `PUBLIC_FILE_BASE_URL`，会提交可公网访问的 URL；否则会得到本地 `file://` URL。
-- 更推荐配置 OSS（`OSS_*`）：服务会先把本地文件上传到 OSS，再生成临时签名 URL 给 ASR 拉取；这样不需要把 bucket 设为公网读。
-- 推荐流程：`上传 -> 私有 OSS -> 签名 URL -> ASR -> 删除临时文件`。服务会在单任务结束后清理本地上传文件；并在启用 OSS 且 `OSS_DELETE_TEMP_AFTER_ASR=true` 时删除 OSS 临时对象。
-- 若未配置 OSS，可再配置 `PUBLIC_FILE_BASE_URL` 提交公网可访问的 `http(s)` 文件 URL。
-- 为避免把本地 `file://` 提交到云端导致 `DECODE_ERROR`/拉取失败，服务默认会直接报错并提示你配置 OSS 或 `PUBLIC_FILE_BASE_URL`。
-- 仅当你确认当前账号/接口支持 `file://` 输入时，才设置 `ALLOW_LOCAL_FILE_URI=true` 绕过该保护。
-- 如果 `GET /batches/{batch_id}` 里出现 `ASR input URL is local file://`，可按下面最小配置修复：
-
-```bash
-# 方案 A（推荐）：配置 OSS 临时签名 URL
-export OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com"
-export OSS_BUCKET="<your-bucket>"
-export OSS_ACCESS_KEY_ID="<your-ak>"
-export OSS_ACCESS_KEY_SECRET="<your-sk>"
-
-# 方案 B：用公网 HTTP(S) 地址暴露上传目录
-export PUBLIC_FILE_BASE_URL="https://<your-domain>/public/uploads"
-```
-
-  改完后请重启服务（例如重启 `uvicorn`），再重新上传音频。
-- 服务已挂载静态目录 `GET /public/uploads/...`（映射到 `data/uploads/`），你可以配合反向代理或内网穿透（如 ngrok）提供公网访问地址。
-- 若报错中出现 `base_url`/`region` 相关信息，请核对 `DASHSCOPE_BASE_URL` 与 `DASHSCOPE_API_KEY` 是否同地域（中国站/国际站）。
-- 如果任务长时间停在 `running`，可先把 `DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS` 调小（例如 60~120）让任务尽快失败并查看错误详情；常见原因是输入 URL 不可访问或模型/地域不匹配。
+- 输出目录是 `data/outputs/`（不是 `output/`）。
+- `POST /batches` 返回后任务通常仍在排队；需轮询 `GET /batches/{batch_id}`，待 `succeeded` 后再下载。
+- 若出现 `ASR input URL is local file://`，请配置 `OSS_*`（推荐）或 `PUBLIC_FILE_BASE_URL`。
+- 若报 `404`（模型不可用）或地域相关错误，请核对 `DASHSCOPE_ASR_MODEL`、`DASHSCOPE_BASE_URL`、`DASHSCOPE_API_KEY` 是否匹配。
+- 若任务长时间 `running`，可先将 `DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS` 调小，快速定位错误原因。
