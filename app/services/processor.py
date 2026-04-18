@@ -51,12 +51,6 @@ class BatchProcessor:
             self.store.update_job_status(job.job_id, JobStatus.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
             self.store.update_job_status(job.job_id, JobStatus.FAILED, str(exc))
-        finally:
-            # 上传文件仅用于一次性转写，任务结束后删除本地临时文件。
-            try:
-                upload_path.unlink(missing_ok=True)
-            except Exception:  # noqa: BLE001
-                pass
 
     @staticmethod
     def _build_organized_header(
