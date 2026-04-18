@@ -87,6 +87,7 @@ curl -X POST "http://127.0.0.1:8000/organize" \
 
 - 输出目录是 `data/outputs/`（不是 `output/`）。
 - `POST /batches` 返回后任务通常仍在排队；需轮询 `GET /batches/{batch_id}`，待 `succeeded` 后再下载。
+- 上传原始音频会保留在 `data/uploads/<batch_id>/`（或 `UPLOAD_ROOT_DIR` 指定目录）下，便于回溯。
 - 若出现 `ASR input URL is local file://`，请配置 `OSS_*`（推荐）或 `PUBLIC_FILE_BASE_URL`。
 - 若报 `404`（模型不可用）或地域相关错误，请核对 `DASHSCOPE_ASR_MODEL`、`DASHSCOPE_BASE_URL`、`DASHSCOPE_API_KEY` 是否匹配。
 - 若任务长时间 `running`，可先将 `DASHSCOPE_TASK_POLL_TIMEOUT_SECONDS` 调小，快速定位错误原因。
