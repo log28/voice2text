@@ -39,6 +39,18 @@ class JobInfo(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class JobPublicInfo(BaseModel):
+    """对外接口返回的任务信息（不包含服务端本地路径）。"""
+
+    job_id: str
+    batch_id: str
+    filename: str
+    status: JobStatus
+    error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class BatchInfo(BaseModel):
     """一批文件任务的元数据。"""
 
@@ -54,7 +66,7 @@ class CreateBatchResponse(BaseModel):
 
     batch_id: str
     status: BatchStatus
-    jobs: list[JobInfo]
+    jobs: list[JobPublicInfo]
 
 
 class GetBatchResponse(BaseModel):
@@ -67,7 +79,7 @@ class GetBatchResponse(BaseModel):
     processing: int
     succeeded: int
     failed: int
-    jobs: list[JobInfo]
+    jobs: list[JobPublicInfo]
 
 
 class JobResultResponse(BaseModel):

@@ -24,6 +24,7 @@ from app.models.schemas import (
     CreateBatchResponse,
     GetBatchResponse,
     JobInfo,
+    JobPublicInfo,
     JobResultResponse,
     JobStatus,
     OrganizeTextRequest,
@@ -65,6 +66,19 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _to_public_job(job: JobInfo) -> JobPublicInfo:
+    """将内部 job 模型转换为对外安全字段。"""
+    return JobPublicInfo(
+        job_id=job.job_id,
+        batch_id=job.batch_id,
+        filename=job.filename,
+        status=job.status,
+        error=job.error,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+    )
+
+
 @app.post("/batches", response_model=CreateBatchResponse)
 async def create_batch(background_tasks: BackgroundTasks, files: list[UploadFile] = File(...)) -> CreateBatchResponse:
     """创建一个批量转录任务。
@@ -86,7 +100,8 @@ async def create_batch(background_tasks: BackgroundTasks, files: list[UploadFile
     for upload in files:
         # 为每个文件单独生成 job，保证可独立追踪成功/失败状态。
         job_id = f"j_{uuid.uuid4().hex[:12]}"
-        filename = upload.filename or f"{job_id}.audio"
+        # 仅保留文件名本体，避免路径穿越（如 ../../etc/passwd）。
+        filename = Path(upload.filename or f"{job_id}.audio").name
         upload_path = batch_upload_dir / filename
         output_path = batch_output_dir / f"{Path(filename).stem}.txt"
 
@@ -108,7 +123,7 @@ async def create_batch(background_tasks: BackgroundTasks, files: list[UploadFile
     # 通过 BackgroundTasks 异步执行，避免阻塞当前 HTTP 请求。
     background_tasks.add_task(processor.process_jobs, jobs)
 
-    return CreateBatchResponse(batch_id=batch_id, status=batch.status, jobs=jobs)
+    return CreateBatchResponse(batch_id=batch_id, status=batch.status, jobs=[_to_public_job(job) for job in jobs])
 
 
 @app.get("/batches/{batch_id}", response_model=GetBatchResponse)
@@ -132,7 +147,7 @@ def get_batch(batch_id: str) -> GetBatchResponse:
         processing=processing,
         succeeded=succeeded,
         failed=failed,
-        jobs=jobs,
+        jobs=[_to_public_job(job) for job in jobs],
     )
 
 
