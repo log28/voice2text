@@ -44,7 +44,7 @@ class BatchProcessor:
             text = await asyncio.to_thread(self.asr_service.transcribe, upload_path)
             organized = await asyncio.to_thread(self.organizer.organize, text)
             organized_header = self._build_organized_header(organized.time, organized.scene, organized.summary, organized.key_points, organized.action_items, organized.tags)
-            full_output = f"{organized_header}\n\n{text}"
+            full_output = f"{organized_header}\n\n完整转录文本：\n{text}"
             output_path = Path(job.output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(full_output, encoding="utf-8")
