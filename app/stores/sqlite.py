@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app.models.schemas import BatchInfo, BatchStatus, JobInfo, JobStatus
-from app.store.base import Store
+from app.stores.base import Store
 
 
 class SQLiteStore(Store):

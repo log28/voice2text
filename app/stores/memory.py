@@ -6,7 +6,7 @@ from datetime import datetime
 from threading import Lock
 
 from app.models.schemas import BatchInfo, BatchStatus, JobInfo, JobStatus
-from app.store.base import Store
+from app.stores.base import Store
 
 
 class InMemoryStore(Store):

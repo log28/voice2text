@@ -8,7 +8,7 @@ from pathlib import Path
 from app.models.schemas import JobInfo, JobStatus
 from app.services.asr import AsrService
 from app.services.organizer import TranscriptOrganizer
-from app.store import Store
+from app.stores import Store
 
 
 class BatchProcessor:

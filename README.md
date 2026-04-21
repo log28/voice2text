@@ -15,11 +15,32 @@
 ## 目录
 
 ```text
-app/
-data/
-  uploads/
-  outputs/
-requirements.txt
+voice2text/
+├─ app/
+│  ├─ api/
+│  │  └─ routes.py
+│  ├─ core/
+│  │  └─ config.py
+│  ├─ models/
+│  │  └─ schemas.py
+│  ├─ services/
+│  │  ├─ asr.py
+│  │  ├─ organizer.py
+│  │  ├─ processor.py
+│  │  └─ batch_service.py
+│  ├─ stores/
+│  │  ├─ base.py
+│  │  ├─ memory.py
+│  │  └─ sqlite.py
+│  ├─ web/
+│  │  └─ index.html
+│  └─ main.py
+├─ tests/
+├─ README.md
+├─ .env.example
+├─ LICENSE
+├─ requirements.txt
+└─ .gitignore
 ```
 
 ## 环境变量
