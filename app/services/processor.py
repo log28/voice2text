@@ -8,13 +8,13 @@ from pathlib import Path
 from app.models.schemas import JobInfo, JobStatus
 from app.services.asr import AsrService
 from app.services.organizer import TranscriptOrganizer
-from app.services.store import InMemoryStore
+from app.store import Store
 
 
 class BatchProcessor:
     def __init__(
         self,
-        store: InMemoryStore,
+        store: Store,
         asr_service: AsrService,
         organizer: TranscriptOrganizer,
         max_concurrency: int = 2,

@@ -33,7 +33,7 @@ from app.models.schemas import (
 from app.services.asr import AsrService
 from app.services.organizer import TranscriptOrganizer
 from app.services.processor import BatchProcessor
-from app.services.store import InMemoryStore
+from app.store import InMemoryStore, SQLiteStore, Store
 
 # 启动时自动加载项目根目录 .env，便于本地开发。
 load_dotenv()
@@ -48,7 +48,17 @@ OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="voice2text", version="0.1.0")
 app.mount("/public/uploads", StaticFiles(directory=UPLOAD_ROOT), name="public_uploads")
-store = InMemoryStore()
+STORE_BACKEND = os.getenv("STORE_BACKEND", "memory").lower()
+SQLITE_DB_PATH = os.getenv("STORE_SQLITE_DB_PATH", str(DATA_ROOT / "metadata" / "voice2text.db"))
+
+
+def _build_store() -> Store:
+    if STORE_BACKEND == "sqlite":
+        return SQLiteStore(db_path=SQLITE_DB_PATH)
+    return InMemoryStore()
+
+
+store = _build_store()
 asr = AsrService()
 organizer = TranscriptOrganizer()
 processor = BatchProcessor(store=store, asr_service=asr, organizer=organizer, max_concurrency=2)
