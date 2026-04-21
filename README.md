@@ -2,6 +2,8 @@
 
 一个基于 FastAPI + 阿里云百炼（DashScope）ASR 的批量音频转录服务（当前版本不含说话人分离）。
 
+> 元数据存储支持 `memory`（默认）和 `sqlite` 两种后端；生产建议使用 `sqlite` 或自行扩展到外部数据库。
+
 ## 功能
 
 - 批量上传多个音频并转录
@@ -42,6 +44,11 @@ export OSS_DELETE_TEMP_AFTER_ASR="true"                           # 可选
 
 # 备选：提供公网可访问的上传目录地址
 export PUBLIC_FILE_BASE_URL="https://<你的域名>/public/uploads"
+
+
+# 存储后端（batch/job 元数据）
+export STORE_BACKEND="memory"                                  # 可选：memory / sqlite
+export STORE_SQLITE_DB_PATH="/abs/path/to/data/metadata.db"    # STORE_BACKEND=sqlite 时生效
 
 # 本地目录（可选）
 export UPLOAD_ROOT_DIR="/abs/path/to/data/uploads"
@@ -85,6 +92,8 @@ curl -X POST "http://127.0.0.1:8000/organize" \
 
 ## 常见问题（精简）
 
+- 当前内置 `memory` 与 `sqlite` 两种元数据存储。`memory` 重启会丢数据，仅适合本地 demo。
+- 若要具备基础可恢复能力，请设置 `STORE_BACKEND=sqlite`，并持久化 `STORE_SQLITE_DB_PATH` 指向的文件。
 - 输出目录是 `data/outputs/`（不是 `output/`）。
 - `POST /batches` 返回后任务通常仍在排队；需轮询 `GET /batches/{batch_id}`，待 `succeeded` 后再下载。
 - 上传原始音频会保留在 `data/uploads/<batch_id>/`（或 `UPLOAD_ROOT_DIR` 指定目录）下，便于回溯。
