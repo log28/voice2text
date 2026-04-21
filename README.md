@@ -24,7 +24,7 @@ requirements.txt
 
 ## 环境变量
 
-创建 `.env`（启动时自动加载）或在 shell 中设置：
+可先复制模板：`cp .env.example .env`，再按需修改（启动时自动加载）；或直接在 shell 中设置：
 
 ```bash
 export DASHSCOPE_API_KEY="<你的 API Key>"
