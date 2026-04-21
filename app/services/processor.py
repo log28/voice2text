@@ -43,8 +43,15 @@ class BatchProcessor:
             # ASR SDK 调用是阻塞 IO，放到线程池避免卡住 event loop。
             text = await asyncio.to_thread(self.asr_service.transcribe, upload_path)
             organized = await asyncio.to_thread(self.organizer.organize, text)
-            organized_header = self._build_organized_header(organized.time, organized.scene, organized.summary, organized.key_points, organized.action_items, organized.tags)
-            full_output = f"{organized_header}\n\n完整转录文本：\n{text}"
+            organized_header = self._build_organized_header(
+                organized.time,
+                organized.scene,
+                organized.summary,
+                organized.key_points,
+                organized.action_items,
+                organized.tags,
+            )
+            full_output = f"{organized_header}\n\n## 完整转录文本\n\n{text}"
             output_path = Path(job.output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(full_output, encoding="utf-8")
@@ -65,11 +72,15 @@ class BatchProcessor:
         action_items_text = "\n".join(f"- {item}" for item in action_items) or "- （暂无）"
         tags_text = " ".join(tags) if tags else "#未分类"
         return (
-            "【整理提炼】\n"
-            f"时间：{time_text}\n"
-            f"场景：{scene}\n\n"
-            f"摘要：\n{summary}\n\n"
-            f"关键点：\n{key_points_text}\n\n"
-            f"可执行事项：\n{action_items_text}\n\n"
-            f"标签：\n{tags_text}"
+            "# 整理提炼\n\n"
+            f"- **时间**: {time_text}\n"
+            f"- **场景**: {scene}\n\n"
+            "## 摘要\n\n"
+            f"{summary}\n\n"
+            "## 关键点\n\n"
+            f"{key_points_text}\n\n"
+            "## 可执行事项\n\n"
+            f"{action_items_text}\n\n"
+            "## 标签\n\n"
+            f"{tags_text}"
         )

@@ -285,7 +285,7 @@
             <td>${job.filename}</td>
             <td><span class="status ${statusClass}">${job.status}</span></td>
             <td>
-              ${job.status === "succeeded" ? `<a href="/jobs/${job.job_id}/download" target="_blank">下载 txt</a>` : "-"}
+              ${job.status === "succeeded" ? `<a href="/jobs/${job.job_id}/download" target="_blank">下载 Markdown</a>` : "-"}
               ${job.status === "failed" && job.error ? `<div style="color:#991b1b;font-size:12px;">${job.error}</div>` : ""}
             </td>
           `;

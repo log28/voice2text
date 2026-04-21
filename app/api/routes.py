@@ -72,7 +72,7 @@ def create_router(store: Store) -> APIRouter:
             job_id = f"j_{uuid.uuid4().hex[:12]}"
             filename = Path(upload.filename or f"{job_id}.audio").name
             upload_path = batch_upload_dir / filename
-            output_path = batch_output_dir / f"{Path(filename).stem}.txt"
+            output_path = batch_output_dir / f"{Path(filename).stem}.md"
 
             file_bytes = await upload.read()
             upload_path.write_bytes(file_bytes)
@@ -145,7 +145,7 @@ def create_router(store: Store) -> APIRouter:
         if not output_path.exists():
             raise HTTPException(status_code=404, detail="Result file missing")
 
-        return FileResponse(path=output_path, media_type="text/plain", filename=output_path.name)
+        return FileResponse(path=output_path, media_type="text/markdown", filename=output_path.name)
 
     @router.get("/batches/{batch_id}/download-succeeded-zip")
     def download_batch_succeeded_zip(batch_id: str) -> FileResponse:
