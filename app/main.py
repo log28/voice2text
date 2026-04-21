@@ -9,12 +9,10 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 import zipfile
 from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,21 +33,10 @@ from app.services.organizer import TranscriptOrganizer
 from app.services.processor import BatchProcessor
 from app.store import InMemoryStore, SQLiteStore, Store
 
-# 启动时自动加载项目根目录 .env，便于本地开发。
-load_dotenv()
-
-# 固定数据目录到项目根路径，避免因启动目录不同导致文件写到意外位置。
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_ROOT = PROJECT_ROOT / "data"
-UPLOAD_ROOT = Path(os.getenv("UPLOAD_ROOT_DIR", str(DATA_ROOT / "uploads"))).resolve()
-OUTPUT_ROOT = Path(os.getenv("OUTPUT_ROOT_DIR", str(DATA_ROOT / "outputs"))).resolve()
-UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+from app.core.config import OUTPUT_ROOT, PROJECT_ROOT, SQLITE_DB_PATH, STORE_BACKEND, UPLOAD_ROOT
 
 app = FastAPI(title="voice2text", version="0.1.0")
 app.mount("/public/uploads", StaticFiles(directory=UPLOAD_ROOT), name="public_uploads")
-STORE_BACKEND = os.getenv("STORE_BACKEND", "memory").lower()
-SQLITE_DB_PATH = os.getenv("STORE_SQLITE_DB_PATH", str(DATA_ROOT / "metadata" / "voice2text.db"))
 
 
 def _build_store() -> Store:
