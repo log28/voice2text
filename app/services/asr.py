@@ -140,10 +140,14 @@ class AsrService:
             relative_path = file_path.relative_to(self.upload_root).as_posix()
         except ValueError:
             relative_path = file_path.name
-        encoded_path = "/".join(quote(part, safe=".-_") for part in relative_path.split("/"))
+        # Keep the object key as plain logical path (including spaces / non-ascii).
+        # OSS SDK handles request URL encoding during sign_url generation.
+        # Pre-encoding here can cause double-encoding (e.g. `%` -> `%25`) and
+        # then remote fetch failures on the signed URL.
+        normalized_path = "/".join(part for part in relative_path.split("/") if part)
         if self.oss_prefix:
-            return f"{self.oss_prefix}/{encoded_path}"
-        return encoded_path
+            return f"{self.oss_prefix}/{normalized_path}"
+        return normalized_path
 
     def _submit_task(self, local_uri: str) -> str:
         # DashScope ASR transcription endpoint expects file URLs in `input.file_urls`.
