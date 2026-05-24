@@ -5,3 +5,12 @@ __pycache__/
 data/uploads/
 data/outputs/
 .DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.cer
+*.pem

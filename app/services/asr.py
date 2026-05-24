@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import json
+import random
 import time
 import importlib.util
 from pathlib import Path
@@ -11,7 +12,6 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-import oss2
 from dotenv import load_dotenv
 
 
@@ -40,6 +40,16 @@ class AsrService:
         self.oss_access_key_secret = os.getenv("OSS_ACCESS_KEY_SECRET", "").strip()
         self.oss_prefix = os.getenv("OSS_PREFIX", "voice2text/uploads").strip().strip("/")
         self.oss_signed_url_expire_seconds = int(os.getenv("OSS_SIGNED_URL_EXPIRE_SECONDS", "3600"))
+        self.oss_connect_timeout_seconds = float(os.getenv("OSS_CONNECT_TIMEOUT_SECONDS", "30"))
+        self.oss_upload_retries = max(1, int(os.getenv("OSS_UPLOAD_RETRIES", "3")))
+        self.oss_upload_retry_base_seconds = float(os.getenv("OSS_UPLOAD_RETRY_BASE_SECONDS", "1"))
+        self.oss_upload_retry_max_seconds = float(os.getenv("OSS_UPLOAD_RETRY_MAX_SECONDS", "8"))
+        self.oss_multipart_threshold_bytes = max(
+            1,
+            int(os.getenv("OSS_MULTIPART_THRESHOLD_BYTES", str(8 * 1024 * 1024))),
+        )
+        self.oss_part_size_bytes = max(100 * 1024, int(os.getenv("OSS_PART_SIZE_BYTES", str(8 * 1024 * 1024))))
+        self.oss_upload_threads = max(1, int(os.getenv("OSS_UPLOAD_THREADS", "3")))
         self._oss_bucket = None
         # 如果配置了对外可访问的上传目录 URL，则优先提交公网 URL（推荐）。
         self.public_file_base_url = os.getenv("PUBLIC_FILE_BASE_URL", "").rstrip("/")
@@ -114,16 +124,70 @@ class AsrService:
             )
         import oss2
         auth = oss2.Auth(self.oss_access_key_id, self.oss_access_key_secret)
-        self._oss_bucket = oss2.Bucket(auth, self.oss_endpoint, self.oss_bucket_name)
+        try:
+            self._oss_bucket = oss2.Bucket(
+                auth,
+                self.oss_endpoint,
+                self.oss_bucket_name,
+                connect_timeout=self.oss_connect_timeout_seconds,
+            )
+        except TypeError:
+            # Older oss2 releases do not accept connect_timeout in Bucket().
+            self._oss_bucket = oss2.Bucket(auth, self.oss_endpoint, self.oss_bucket_name)
         return self._oss_bucket
 
     def _upload_to_oss_and_sign_url(self, file_path: Path) -> tuple[str, str]:
-        bucket = self._get_oss_bucket()
         object_key = self._build_oss_object_key(file_path)
-        with file_path.open("rb") as fp:
-            bucket.put_object(object_key, fp)
+        self._upload_file_to_oss(file_path, object_key)
         # 通过签名 URL 给 DashScope 拉取，避免把 bucket 设成公网读。
+        bucket = self._get_oss_bucket()
         return bucket.sign_url("GET", object_key, self.oss_signed_url_expire_seconds), object_key
+
+    def _upload_file_to_oss(self, file_path: Path, object_key: str) -> None:
+        bucket = self._get_oss_bucket()
+        file_size = file_path.stat().st_size
+
+        for attempt in range(1, self.oss_upload_retries + 1):
+            try:
+                if file_size >= self.oss_multipart_threshold_bytes:
+                    self._multipart_upload_to_oss(bucket, file_path, object_key)
+                else:
+                    with file_path.open("rb") as fp:
+                        bucket.put_object(object_key, fp)
+                return
+            except Exception as exc:  # noqa: BLE001
+                if attempt >= self.oss_upload_retries:
+                    raise RuntimeError(self._format_oss_upload_error(file_path, object_key, attempt, exc)) from exc
+                time.sleep(self._oss_retry_sleep_seconds(attempt))
+
+    def _multipart_upload_to_oss(self, bucket, file_path: Path, object_key: str) -> None:
+        import oss2
+
+        oss2.resumable_upload(
+            bucket,
+            object_key,
+            str(file_path),
+            multipart_threshold=self.oss_multipart_threshold_bytes,
+            part_size=self.oss_part_size_bytes,
+            num_threads=self.oss_upload_threads,
+        )
+
+    def _oss_retry_sleep_seconds(self, attempt: int) -> float:
+        base = max(0.1, self.oss_upload_retry_base_seconds)
+        cap = max(base, self.oss_upload_retry_max_seconds)
+        delay = min(cap, base * (2 ** (attempt - 1)))
+        return delay + random.uniform(0, min(0.5, delay * 0.1))
+
+    def _format_oss_upload_error(self, file_path: Path, object_key: str, attempts: int, exc: Exception) -> str:
+        return (
+            "OSS upload failed after retries. "
+            f"file='{file_path.name}', size_bytes={file_path.stat().st_size}, object_key='{object_key}', "
+            f"attempts={attempts}, endpoint='{self.oss_endpoint}', bucket='{self.oss_bucket_name}', "
+            f"detail='{exc}'. "
+            "This is usually caused by an unstable network, a too-small timeout, or an endpoint/region mismatch. "
+            "You can tune OSS_UPLOAD_RETRIES, OSS_CONNECT_TIMEOUT_SECONDS, OSS_MULTIPART_THRESHOLD_BYTES, "
+            "OSS_PART_SIZE_BYTES, and OSS_UPLOAD_THREADS."
+        )
 
     def _delete_oss_temp_object(self, object_key: str | None) -> None:
         if not object_key or not self.delete_oss_temp_after_asr or not self._oss_enabled():

@@ -124,12 +124,20 @@ GET /api/download/{batch_id}
 
 ## ⚙️ Configuration
 
-| Key               | Description     |
-| ----------------- | --------------- |
-| DASHSCOPE_API_KEY | 阿里云语音识别 API Key |
-| OSS_ENDPOINT      | OSS 地址             |
-| UPLOAD_ROOT_DIR   | 本地上传目录          |
-| OUTPUT_ROOT_DIR   | 输出目录             |
+| Key                             | Description                                   |
+| ------------------------------- | --------------------------------------------- |
+| DASHSCOPE_API_KEY               | 阿里云语音识别 API Key                         |
+| OSS_ENDPOINT                    | OSS 地址，例如 `https://oss-cn-beijing.aliyuncs.com` |
+| OSS_BUCKET                      | OSS Bucket 名称                                |
+| OSS_ACCESS_KEY_ID               | OSS AccessKey ID                              |
+| OSS_ACCESS_KEY_SECRET           | OSS AccessKey Secret                          |
+| OSS_UPLOAD_RETRIES              | OSS 上传失败后的最大尝试次数，默认 `3`          |
+| OSS_CONNECT_TIMEOUT_SECONDS     | OSS 连接超时时间，默认 `30` 秒                 |
+| OSS_MULTIPART_THRESHOLD_BYTES   | 超过该大小后使用分片上传，默认 `8388608`        |
+| OSS_PART_SIZE_BYTES             | 分片大小，默认 `8388608`                       |
+| OSS_UPLOAD_THREADS              | 分片上传线程数，默认 `3`                       |
+| UPLOAD_ROOT_DIR                 | 本地上传目录                                   |
+| OUTPUT_ROOT_DIR                 | 输出目录                                      |
 
 ---
 
