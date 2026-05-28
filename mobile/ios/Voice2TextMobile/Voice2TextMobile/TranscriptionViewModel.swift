@@ -6,6 +6,7 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var jobs: [TranscriptJob] = []
     @Published var isRunning = false
     @Published var message: String?
+    @Published var combinedOutputURL: URL?
 
     init(config: AppConfig = ConfigStore.load()) {
         self.config = config
@@ -16,6 +17,22 @@ final class TranscriptionViewModel: ObservableObject {
             try ConfigStore.save(newConfig)
             config = newConfig
             message = "设置已保存"
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func setOrganizeMode(_ mode: OrganizeMode) {
+        guard config.organizeMode != mode else {
+            return
+        }
+
+        var newConfig = config
+        newConfig.organizeMode = mode
+        do {
+            try ConfigStore.save(newConfig)
+            config = newConfig
+            combinedOutputURL = nil
         } catch {
             message = error.localizedDescription
         }
@@ -40,6 +57,9 @@ final class TranscriptionViewModel: ObservableObject {
             }
 
             jobs.append(contentsOf: importedJobs)
+            if !importedJobs.isEmpty {
+                combinedOutputURL = nil
+            }
             if skippedCount > 0 {
                 message = "已跳过 \(skippedCount) 个重复音频"
             }
@@ -48,11 +68,110 @@ final class TranscriptionViewModel: ObservableObject {
         }
     }
 
+    func importSharedFile(_ url: URL) {
+        importSharedFiles([url])
+    }
+
+    func importSharedFiles(_ urls: [URL]) {
+        let beforeCount = jobs.count
+        importFiles(urls)
+        let addedCount = jobs.count - beforeCount
+        if addedCount == 1, let url = urls.first {
+            message = "已从分享菜单添加音频：\(url.lastPathComponent)"
+        } else if addedCount > 1 {
+            message = "已从分享菜单添加 \(addedCount) 个音频"
+        } else if message == nil {
+            message = "没有新增音频"
+        }
+    }
+
+    func importSharedBatch(from url: URL) {
+        guard
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let batchID = components.queryItems?.first(where: { $0.name == "batch" })?.value,
+            !batchID.isEmpty
+        else {
+            message = "分享导入失败：缺少批次信息"
+            return
+        }
+
+        guard
+            let groupIdentifier = Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String,
+            let sharedRoot = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
+        else {
+            message = "分享导入失败：未配置 App Group"
+            return
+        }
+
+        let batchDirectory = sharedRoot
+            .appendingPathComponent("SharedImports", isDirectory: true)
+            .appendingPathComponent(batchID, isDirectory: true)
+
+        importSharedBatchDirectory(batchDirectory, showNoNewAudioMessage: true)
+    }
+
+    func importPendingSharedBatches() {
+        guard
+            let groupIdentifier = Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String,
+            let sharedRoot = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupIdentifier)
+        else {
+            return
+        }
+
+        let importsDirectory = sharedRoot.appendingPathComponent("SharedImports", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: importsDirectory.path) else {
+            return
+        }
+
+        do {
+            let batchDirectories = try FileManager.default.contentsOfDirectory(
+                at: importsDirectory,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            for batchDirectory in batchDirectories {
+                importSharedBatchDirectory(batchDirectory, showNoNewAudioMessage: false)
+            }
+        } catch {
+            message = "分享导入失败：\(error.localizedDescription)"
+        }
+    }
+
+    private func importSharedBatchDirectory(_ batchDirectory: URL, showNoNewAudioMessage: Bool) {
+        let readyMarkerURL = batchDirectory.appendingPathComponent(".ready")
+        guard FileManager.default.fileExists(atPath: readyMarkerURL.path) else {
+            return
+        }
+
+        do {
+            let urls = try FileManager.default.contentsOfDirectory(
+                at: batchDirectory,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            let audioURLs = urls.filter { $0.lastPathComponent != ".ready" }
+            let beforeCount = jobs.count
+            importFiles(audioURLs)
+            try? FileManager.default.removeItem(at: batchDirectory)
+            let addedCount = jobs.count - beforeCount
+            if addedCount > 0 {
+                message = "已从分享菜单添加 \(addedCount) 个音频"
+            } else if showNoNewAudioMessage, message == nil {
+                message = "没有新增音频"
+            }
+        } catch {
+            message = "分享导入失败：\(error.localizedDescription)"
+        }
+    }
+
     func clearJobs() {
         for job in jobs where job.status != .uploading && job.status != .submitting && job.status != .transcribing && job.status != .organizing && job.status != .saving {
             removeLocalSourceIfNeeded(job.sourceURL)
         }
         jobs.removeAll { $0.status != .uploading && $0.status != .submitting && $0.status != .transcribing && $0.status != .organizing && $0.status != .saving }
+        if jobs.isEmpty {
+            combinedOutputURL = nil
+        }
     }
 
     func removeJobs(at offsets: IndexSet) {
@@ -69,6 +188,7 @@ final class TranscriptionViewModel: ObservableObject {
         }
         let removableIDs = Set(removableJobs.map { $0.id })
         jobs.removeAll { removableIDs.contains($0.id) }
+        combinedOutputURL = nil
     }
 
     func removeJob(_ job: TranscriptJob) {
@@ -77,6 +197,7 @@ final class TranscriptionViewModel: ObservableObject {
         }
         removeLocalSourceIfNeeded(job.sourceURL)
         jobs.removeAll { $0.id == job.id }
+        combinedOutputURL = nil
     }
 
     private func isRemovable(_ job: TranscriptJob) -> Bool {
@@ -102,17 +223,22 @@ final class TranscriptionViewModel: ObservableObject {
 
         isRunning = true
         defer { isRunning = false }
+        combinedOutputURL = nil
 
         let targetIDs = jobs
             .filter { $0.status != .succeeded }
             .map(\.id)
 
         for id in targetIDs {
-            await processJob(id)
+            await processJob(id, shouldOrganizeIndividually: config.organizeMode == .perFile)
+        }
+
+        if config.organizeMode == .combined {
+            await organizeCombinedTranscript()
         }
     }
 
-    private func processJob(_ id: UUID) async {
+    private func processJob(_ id: UUID, shouldOrganizeIndividually: Bool) async {
         let oss = OSSClient(config: config)
         let dashScope = DashScopeClient(config: config)
         var uploadedObjectKey: String?
@@ -133,22 +259,30 @@ final class TranscriptionViewModel: ObservableObject {
                 self?.updateJob(id, status: .transcribing, detail: detail)
             }
 
-            updateJob(id, status: .organizing, detail: config.shouldOrganize ? "调用 Qwen 整理文本" : "生成 Markdown")
-            let organized = await dashScope.organize(transcript: result.transcript)
+            let markdown: String
+            if shouldOrganizeIndividually {
+                updateJob(id, status: .organizing, detail: config.shouldOrganize ? "调用 Qwen 整理文本" : "生成 Markdown")
+                let organized = await dashScope.organize(transcript: result.transcript)
+                markdown = organized.markdown
+            } else {
+                markdown = rawTranscriptMarkdown(fileName: job.fileName, transcript: result.transcript)
+            }
 
             updateJob(id, status: .saving, detail: "保存到手机本地")
-            let outputURL = try saveMarkdown(organized.markdown, for: job.fileName)
+            let outputURL = try saveMarkdown(markdown, for: job.fileName)
 
             updateJob(
                 id,
                 status: .succeeded,
-                detail: "已保存 \(outputURL.lastPathComponent)",
+                detail: shouldOrganizeIndividually ? "已保存 \(outputURL.lastPathComponent)" : "已转录 \(outputURL.lastPathComponent)",
                 taskID: result.taskID,
                 transcript: result.transcript,
-                markdown: organized.markdown,
+                markdown: markdown,
                 outputURL: outputURL,
                 clearErrorMessage: true
             )
+
+            removeLocalSourceIfNeeded(job.sourceURL)
 
             if config.deleteOSSObjectAfterASR {
                 await oss.delete(objectKey: objectKey)
@@ -158,6 +292,41 @@ final class TranscriptionViewModel: ObservableObject {
                 await oss.delete(objectKey: objectKey)
             }
             updateJob(id, status: .failed, detail: "处理失败", errorMessage: error.localizedDescription)
+        }
+    }
+
+    private func organizeCombinedTranscript() async {
+        let dashScope = DashScopeClient(config: config)
+        let sections = jobs.compactMap { job -> String? in
+            guard job.status == .succeeded, let transcript = job.transcript else {
+                return nil
+            }
+            return "## \(job.fileName)\n\n\(transcript)"
+        }
+
+        guard !sections.isEmpty else {
+            return
+        }
+
+        do {
+            for job in jobs where job.status == .succeeded {
+                updateJob(job.id, status: .organizing, detail: "等待合并整理")
+            }
+
+            let combinedTranscript = sections.joined(separator: "\n\n---\n\n")
+            let organized = await dashScope.organize(transcript: combinedTranscript)
+            let outputURL = try saveMarkdown(organized.markdown, for: "合并整理.md")
+            combinedOutputURL = outputURL
+
+            for job in jobs where job.status == .organizing {
+                updateJob(job.id, status: .succeeded, detail: "已加入合并整理")
+            }
+            message = "已保存合并整理：\(outputURL.lastPathComponent)"
+        } catch {
+            message = "合并整理失败：\(error.localizedDescription)"
+            for job in jobs where job.status == .organizing {
+                updateJob(job.id, status: .succeeded, detail: "已转录，合并整理失败")
+            }
         }
     }
 
@@ -247,7 +416,7 @@ final class TranscriptionViewModel: ObservableObject {
     private func saveMarkdown(_ markdown: String, for sourceFileName: String) throws -> URL {
         let directory = try documentsDirectory(named: "Voice2Text Results")
         let stem = (sourceFileName as NSString).deletingPathExtension
-        let fileName = uniqueFileName(basedOn: "\(stem).md", in: directory)
+        let fileName = uniqueFileName(basedOn: "\(dateFilePrefix())_\(stem).md", in: directory)
         let destination = directory.appendingPathComponent(fileName)
 
         do {
@@ -256,6 +425,24 @@ final class TranscriptionViewModel: ObservableObject {
         } catch {
             throw AppError.fileSystem("保存 Markdown 失败：\(error.localizedDescription)")
         }
+    }
+
+    private func dateFilePrefix() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyyMMdd"
+        return dateFormatter.string(from: Date())
+    }
+
+    private func rawTranscriptMarkdown(fileName: String, transcript: String) -> String {
+        """
+        # 原始转录
+
+        - **文件**: \(fileName)
+
+        ## 语音文本
+
+        \(transcript)
+        """
     }
 
     private func appSupportDirectory(named name: String) throws -> URL {

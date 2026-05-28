@@ -112,6 +112,32 @@
         width: 100%;
       }
 
+      .mode-group {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        width: 100%;
+      }
+
+      .mode-option {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        cursor: pointer;
+      }
+
+      .mode-option input {
+        margin-right: 6px;
+      }
+
+      .mode-option span {
+        display: block;
+        margin-left: 24px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
       .meta {
         margin-top: 10px;
         color: var(--muted);
@@ -199,7 +225,22 @@
             <input id="files" type="file" multiple accept="audio/*" />
           </div>
           <div class="row" style="margin-top: 10px">
+            <div class="mode-group">
+              <label class="mode-option">
+                <input type="radio" name="organize-mode" value="per_file" checked />
+                每个音频分别概要整理
+                <span>每个音频生成一个独立 Markdown。</span>
+              </label>
+              <label class="mode-option">
+                <input type="radio" name="organize-mode" value="combined" />
+                多个音频合并概要整理
+                <span>先分别转录，再生成一个合并整理 Markdown。</span>
+              </label>
+            </div>
+          </div>
+          <div class="row" style="margin-top: 10px">
             <button id="upload-btn">开始批量转写</button>
+            <button id="download-combined" class="secondary" disabled>下载合并整理 Markdown</button>
             <button id="download-all" class="secondary" disabled>下载已完成结果（ZIP）</button>
           </div>
           <div class="meta" id="batch-meta">未开始任务</div>
@@ -243,6 +284,7 @@
       const el = {
         files: document.getElementById("files"),
         uploadBtn: document.getElementById("upload-btn"),
+        downloadCombined: document.getElementById("download-combined"),
         downloadAll: document.getElementById("download-all"),
         batchMeta: document.getElementById("batch-meta"),
         progress: document.getElementById("progress"),
@@ -294,8 +336,10 @@
 
         el.rawJson.textContent = JSON.stringify(batch, null, 2);
         el.downloadAll.disabled = batch.succeeded === 0;
+        el.downloadCombined.disabled = !(batch.organize_mode === "combined" && batch.combined_result_available);
 
-        if (done >= total && state.timer) {
+        const waitingCombined = batch.organize_mode === "combined" && batch.succeeded > 0 && !batch.combined_result_available;
+        if (done >= total && !waitingCombined && state.timer) {
           clearInterval(state.timer);
           state.timer = null;
         }
@@ -320,6 +364,8 @@
         for (const file of files) {
           formData.append("files", file);
         }
+        const selectedMode = document.querySelector('input[name="organize-mode"]:checked')?.value || "per_file";
+        formData.append("organize_mode", selectedMode);
 
         el.uploadBtn.disabled = true;
         try {
@@ -347,6 +393,10 @@
       el.downloadAll.addEventListener("click", () => {
         if (!state.batchId) return;
         window.open(`/batches/${state.batchId}/download-succeeded-zip`, "_blank");
+      });
+      el.downloadCombined.addEventListener("click", () => {
+        if (!state.batchId) return;
+        window.open(`/batches/${state.batchId}/download-combined`, "_blank");
       });
     </script>
   </body>

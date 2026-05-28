@@ -7,7 +7,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from app.models.schemas import BatchInfo, BatchStatus, JobInfo, JobStatus
+from app.models.schemas import BatchInfo, BatchStatus, JobInfo, JobStatus, OrganizeMode
 from app.stores.base import Store
 
 
@@ -52,6 +52,11 @@ class SQLiteStore(Store):
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_batch_id ON jobs(batch_id)")
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(batches)").fetchall()}
+            if "organize_mode" not in columns:
+                conn.execute(
+                    "ALTER TABLE batches ADD COLUMN organize_mode TEXT NOT NULL DEFAULT 'per_file'",
+                )
             conn.commit()
 
     def create_batch(self, batch: BatchInfo, jobs: list[JobInfo]) -> None:
@@ -59,12 +64,13 @@ class SQLiteStore(Store):
             conn.execute("BEGIN")
             conn.execute(
                 """
-                INSERT INTO batches(batch_id, status, jobs_json, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO batches(batch_id, status, organize_mode, jobs_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     batch.batch_id,
                     batch.status.value,
+                    batch.organize_mode.value,
                     json.dumps(batch.jobs),
                     batch.created_at.isoformat(),
                     batch.updated_at.isoformat(),
@@ -100,6 +106,7 @@ class SQLiteStore(Store):
         return BatchInfo(
             batch_id=row["batch_id"],
             status=BatchStatus(row["status"]),
+            organize_mode=OrganizeMode(row["organize_mode"]),
             jobs=json.loads(row["jobs_json"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),

@@ -6,7 +6,7 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 
 from app.core.config import OUTPUT_ROOT, PROJECT_ROOT, UPLOAD_ROOT
@@ -20,6 +20,7 @@ from app.models.schemas import (
     JobStatus,
     OrganizeTextRequest,
     OrganizeTextResponse,
+    OrganizeMode,
 )
 from app.services.asr import AsrService
 from app.services.batch_service import BatchService
@@ -57,7 +58,11 @@ def create_router(store: Store) -> APIRouter:
         return {"status": "ok"}
 
     @router.post("/batches", response_model=CreateBatchResponse)
-    async def create_batch(background_tasks: BackgroundTasks, files: list[UploadFile] = File(...)) -> CreateBatchResponse:
+    async def create_batch(
+        background_tasks: BackgroundTasks,
+        files: list[UploadFile] = File(...),
+        organize_mode: OrganizeMode = Form(OrganizeMode.PER_FILE),
+    ) -> CreateBatchResponse:
         if not files:
             raise HTTPException(status_code=400, detail="No files provided")
 
@@ -87,10 +92,16 @@ def create_router(store: Store) -> APIRouter:
                 )
             )
 
-        batch = BatchInfo(batch_id=batch_id, jobs=[job.job_id for job in jobs])
+        batch = BatchInfo(batch_id=batch_id, organize_mode=organize_mode, jobs=[job.job_id for job in jobs])
         batch_service.create_batch(background_tasks=background_tasks, batch=batch, jobs=jobs)
 
-        return CreateBatchResponse(batch_id=batch_id, status=batch.status, jobs=[_to_public_job(job) for job in jobs])
+        return CreateBatchResponse(
+            batch_id=batch_id,
+            status=batch.status,
+            organize_mode=batch.organize_mode,
+            combined_result_available=False,
+            jobs=[_to_public_job(job) for job in jobs],
+        )
 
     @router.get("/batches/{batch_id}", response_model=GetBatchResponse)
     def get_batch(batch_id: str) -> GetBatchResponse:
@@ -99,9 +110,12 @@ def create_router(store: Store) -> APIRouter:
             raise HTTPException(status_code=404, detail="Batch not found")
 
         jobs = store.get_jobs_by_batch(batch_id)
+        combined_path = processor.combined_output_path(batch.batch_id)
         return GetBatchResponse(
             batch_id=batch.batch_id,
             status=batch.status,
+            organize_mode=batch.organize_mode,
+            combined_result_available=combined_path.exists(),
             total_jobs=len(jobs),
             queued=sum(job.status == JobStatus.QUEUED for job in jobs),
             processing=sum(job.status == JobStatus.PROCESSING for job in jobs),
@@ -165,7 +179,24 @@ def create_router(store: Store) -> APIRouter:
                 output_path = Path(job.output_path)
                 if output_path.exists():
                     zf.write(output_path, arcname=output_path.name)
+            combined_path = processor.combined_output_path(batch_id)
+            if combined_path.exists():
+                zf.write(combined_path, arcname=combined_path.name)
 
         return FileResponse(path=zip_path, media_type="application/zip", filename=zip_path.name)
+
+    @router.get("/batches/{batch_id}/download-combined")
+    def download_combined_result(batch_id: str) -> FileResponse:
+        batch = store.get_batch(batch_id)
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        if batch.organize_mode != OrganizeMode.COMBINED:
+            raise HTTPException(status_code=400, detail="Batch is not in combined organize mode")
+
+        output_path = processor.combined_output_path(batch_id)
+        if not output_path.exists():
+            raise HTTPException(status_code=404, detail="Combined result is not ready")
+
+        return FileResponse(path=output_path, media_type="text/markdown", filename=output_path.name)
 
     return router

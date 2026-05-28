@@ -6,6 +6,7 @@ final class ConfigStore {
         static let asrModel = "asrModel"
         static let llmModel = "llmModel"
         static let shouldOrganize = "shouldOrganize"
+        static let organizeMode = "organizeMode"
         static let ossEndpoint = "ossEndpoint"
         static let ossBucket = "ossBucket"
         static let ossPrefix = "ossPrefix"
@@ -32,6 +33,9 @@ final class ConfigStore {
         config.dashScopeBaseURL = defaults.string(forKey: DefaultsKey.dashScopeBaseURL) ?? config.dashScopeBaseURL
         config.asrModel = defaults.string(forKey: DefaultsKey.asrModel) ?? config.asrModel
         config.llmModel = defaults.string(forKey: DefaultsKey.llmModel) ?? config.llmModel
+        if let rawMode = defaults.string(forKey: DefaultsKey.organizeMode), let mode = OrganizeMode(rawValue: rawMode) {
+            config.organizeMode = mode
+        }
         config.ossEndpoint = defaults.string(forKey: DefaultsKey.ossEndpoint) ?? config.ossEndpoint
         config.ossBucket = defaults.string(forKey: DefaultsKey.ossBucket) ?? config.ossBucket
         config.ossPrefix = defaults.string(forKey: DefaultsKey.ossPrefix) ?? config.ossPrefix
@@ -55,6 +59,7 @@ final class ConfigStore {
         defaults.set(config.asrModel, forKey: DefaultsKey.asrModel)
         defaults.set(config.llmModel, forKey: DefaultsKey.llmModel)
         defaults.set(config.shouldOrganize, forKey: DefaultsKey.shouldOrganize)
+        defaults.set(config.organizeMode.rawValue, forKey: DefaultsKey.organizeMode)
         defaults.set(config.ossEndpoint, forKey: DefaultsKey.ossEndpoint)
         defaults.set(config.ossBucket, forKey: DefaultsKey.ossBucket)
         defaults.set(config.ossPrefix, forKey: DefaultsKey.ossPrefix)

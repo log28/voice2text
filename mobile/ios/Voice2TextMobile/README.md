@@ -5,10 +5,11 @@
 ## 能力
 
 - 从 iPhone「文件」App / iCloud Drive 选择一个或多个音频文件。
+- 从 iOS 分享菜单接收音频文件，例如从「语音备忘录」分享 `.m4a` 到 voice2text。
 - 使用 OSS 签名 URL 上传音频，不需要把 Bucket 设为公网读。
 - 调用 DashScope ASR 异步转写接口并轮询任务状态。
 - 下载 DashScope 返回的转写 JSON 并合并文本。
-- 可选调用 Qwen 生成摘要、关键点、待办和标签。
+- 可选调用 Qwen 生成摘要、关键点、待办和标签，支持逐个音频整理或多个音频合并整理。
 - 在 iPhone 本地保存 Markdown，并通过系统分享面板导出。
 - 在「文件」App 的「我的 iPhone > voice2text > Voice2Text Results」里查看 Markdown 结果。
 - DashScope Key、OSS AccessKey、STS Token 保存在 iOS Keychain。
@@ -64,9 +65,29 @@ mobile/ios/Voice2TextMobile/
 
 建议使用权限收窄的 RAM 用户或 STS 临时凭证。最小权限应限制在目标 Bucket 的指定前缀，并只开放上传、读取签名对象和删除临时对象所需的动作。直接从手机访问云服务时，密钥不进入 Mac 端程序，但仍属于移动端凭证，丢机或越狱设备都需要按凭证泄露风险处理。
 
+## 整理方式
+
+主页面提供「合并整理」开关：
+
+- 关闭：每个音频分别生成概要 Markdown。
+- 打开：多个音频先分别转录，全部完成后再合并生成一份概要 Markdown。
+
+## 从语音备忘录导入
+
+安装 App 后，可以直接从 iPhone「语音备忘录」导入：
+
+1. 打开「语音备忘录」。
+2. 点开录音，选择「分享」。
+3. 在分享菜单里选择 voice2text。如果第一屏没有出现，点「更多」查找。
+4. voice2text 会自动打开，并把该音频加入任务列表。
+
+Apple Watch 录音会先同步到 iPhone「语音备忘录」，同步完成后也按同样方式分享给 voice2text。
+
 ## 查找转写结果
 
 转写完成后，每条任务会出现「分享 Markdown」按钮，可以直接用系统分享面板发到微信、邮件、备忘录、iCloud Drive 等位置。
+
+如果打开「合并整理」，每个音频会先保存一份原始转录 Markdown；全部转录完成后，首页会出现「查看合并 Markdown」和「分享合并 Markdown」按钮，并保存一份 `合并整理.md`。
 
 结果文件也会保存在 App 的 Documents 目录。重新安装这个版本后，可以在 iPhone 打开「文件」App：
 
@@ -86,7 +107,7 @@ iPhone 选择音频
   -> 提交 DashScope ASR 异步任务
   -> 轮询 /tasks/{task_id}
   -> 下载 transcription_url JSON
-  -> 可选调用 Qwen 整理
+  -> 可选逐个调用 Qwen 整理，或等待全部转录完成后合并调用 Qwen 整理
   -> 保存 Markdown 到 iPhone
 ```
 

@@ -8,7 +8,7 @@
 
 * 🎧 **多音频批量转写**（支持并发处理）
 * ⚡ **异步任务机制**（避免阻塞）
-* 🧠 **自动文本整理**（摘要 / 去口语化）
+* 🧠 **自动文本整理**（支持单文件分别整理 / 多文件合并整理）
 * 📦 **结果打包下载**（TXT / ZIP）
 * 🌐 **简单 Web UI**（可直接体验）
 * ☁️ **支持 OSS 存储**（适配云场景）
@@ -20,6 +20,11 @@
 ```text
 Upload Audio → Batch Processing → ASR → Text Organize → Download Results
 ```
+
+Web 页面上传时可以选择两种整理方式：
+
+* **每个音频分别概要整理**：每个音频生成一个独立 Markdown。
+* **多个音频合并概要整理**：每个音频先生成原始转录 Markdown，全部转录后额外生成 `combined-summary.md`。
 
 ---
 
@@ -101,7 +106,10 @@ uvicorn app.main:app --reload
 ### 创建批处理任务
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/batch"
+curl -X POST "http://127.0.0.1:8000/batches" \
+  -F "organize_mode=combined" \
+  -F "files=@meeting-1.m4a" \
+  -F "files=@meeting-2.m4a"
 ```
 
 ---
@@ -109,7 +117,7 @@ curl -X POST "http://127.0.0.1:8000/api/batch"
 ### 查询任务状态
 
 ```bash
-GET /api/batch/{batch_id}
+GET /batches/{batch_id}
 ```
 
 ---
@@ -117,7 +125,8 @@ GET /api/batch/{batch_id}
 ### 下载结果
 
 ```bash
-GET /api/download/{batch_id}
+GET /batches/{batch_id}/download-succeeded-zip
+GET /batches/{batch_id}/download-combined
 ```
 
 ---

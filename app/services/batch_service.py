@@ -18,4 +18,4 @@ class BatchService:
 
     def create_batch(self, background_tasks: BackgroundTasks, batch: BatchInfo, jobs: list[JobInfo]) -> None:
         self.store.create_batch(batch=batch, jobs=jobs)
-        background_tasks.add_task(self.processor.process_jobs, jobs)
+        background_tasks.add_task(self.processor.process_jobs, batch, jobs)

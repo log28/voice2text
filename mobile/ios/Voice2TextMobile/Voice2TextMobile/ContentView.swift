@@ -2,9 +2,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @StateObject private var viewModel = TranscriptionViewModel()
+    @ObservedObject var viewModel: TranscriptionViewModel
     @State private var isImporting = false
     @State private var isShowingSettings = false
+    @State private var markdownPreview: MarkdownPreview?
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,33 @@ struct ContentView: View {
                         Spacer()
                         if viewModel.isRunning {
                             ProgressView()
+                        }
+                    }
+
+                    Toggle(isOn: organizeTogetherBinding) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("合并整理")
+                            Text(viewModel.config.organizeMode == .combined ? "多个音频转录后合并生成一个概要" : "每个音频分别生成概要")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .disabled(viewModel.isRunning)
+
+                    if let combinedOutputURL = viewModel.combinedOutputURL {
+                        HStack(spacing: 12) {
+                            Button {
+                                showMarkdownPreview(title: combinedOutputURL.lastPathComponent, markdown: nil, url: combinedOutputURL)
+                            } label: {
+                                Label("查看合并", systemImage: "doc.text.magnifyingglass")
+                            }
+                            .buttonStyle(.bordered)
+
+                            ShareLink(item: combinedOutputURL) {
+                                Label("分享合并", systemImage: "square.and.arrow.up")
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
 
@@ -53,6 +81,8 @@ struct ContentView: View {
                     Section("任务") {
                         ForEach(viewModel.jobs) { job in
                             JobRow(job: job) {
+                                showMarkdownPreview(title: job.fileName, markdown: job.markdown, url: job.outputURL)
+                            } onDelete: {
                                 viewModel.removeJob(job)
                             }
                         }
@@ -94,6 +124,9 @@ struct ContentView: View {
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView(viewModel: viewModel)
             }
+            .sheet(item: $markdownPreview) { preview in
+                MarkdownPreviewView(preview: preview)
+            }
             .alert("提示", isPresented: messageBinding) {
                 Button("好", role: .cancel) {
                     viewModel.message = nil
@@ -102,6 +135,34 @@ struct ContentView: View {
                 Text(viewModel.message ?? "")
             }
         }
+    }
+
+    private func showMarkdownPreview(title: String, markdown: String?, url: URL?) {
+        if let markdown {
+            markdownPreview = MarkdownPreview(title: title, content: markdown)
+            return
+        }
+
+        guard let url else {
+            viewModel.message = "还没有可查看的 Markdown"
+            return
+        }
+
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
+            markdownPreview = MarkdownPreview(title: title, content: content)
+        } catch {
+            viewModel.message = "读取 Markdown 失败：\(error.localizedDescription)"
+        }
+    }
+
+    private var organizeTogetherBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.config.organizeMode == .combined },
+            set: { isCombined in
+                viewModel.setOrganizeMode(isCombined ? .combined : .perFile)
+            }
+        )
     }
 
     private var messageBinding: Binding<Bool> {
@@ -118,6 +179,7 @@ struct ContentView: View {
 
 private struct JobRow: View {
     let job: TranscriptJob
+    let onPreview: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -148,8 +210,14 @@ private struct JobRow: View {
             if job.outputURL != nil || isRemovable {
                 HStack(spacing: 16) {
                     if let outputURL = job.outputURL {
+                        Button(action: onPreview) {
+                            Label("查看", systemImage: "doc.text.magnifyingglass")
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.subheadline.weight(.semibold))
+
                         ShareLink(item: outputURL) {
-                            Label("分享 Markdown", systemImage: "square.and.arrow.up")
+                            Label("分享", systemImage: "square.and.arrow.up")
                         }
                         .buttonStyle(.bordered)
                         .font(.subheadline.weight(.semibold))
@@ -194,6 +262,38 @@ private struct JobRow: View {
             return .secondary
         default:
             return .blue
+        }
+    }
+}
+
+private struct MarkdownPreview: Identifiable {
+    let id = UUID()
+    let title: String
+    let content: String
+}
+
+private struct MarkdownPreviewView: View {
+    let preview: MarkdownPreview
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(preview.content)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
+            .navigationTitle(preview.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

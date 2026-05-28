@@ -6,6 +6,7 @@ struct AppConfig: Equatable {
     var asrModel = "fun-asr"
     var llmModel = "qwen-plus"
     var shouldOrganize = true
+    var organizeMode: OrganizeMode = .perFile
 
     var ossEndpoint = "https://oss-cn-beijing.aliyuncs.com"
     var ossBucket = ""
@@ -31,6 +32,22 @@ struct AppConfig: Equatable {
 
         for item in required where item.1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw AppError.validation("请先在设置里填写 \(item.0)")
+        }
+    }
+}
+
+enum OrganizeMode: String, CaseIterable, Identifiable {
+    case perFile = "per_file"
+    case combined = "combined"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .perFile:
+            return "分别整理"
+        case .combined:
+            return "合并整理"
         }
     }
 }

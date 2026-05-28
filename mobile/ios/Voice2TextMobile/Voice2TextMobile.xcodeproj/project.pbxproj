@@ -16,7 +16,33 @@
 		7A1000072C00000100000001 /* DashScopeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000172C00000100000001 /* DashScopeClient.swift */; };
 		7A1000082C00000100000001 /* TranscriptionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000182C00000100000001 /* TranscriptionViewModel.swift */; };
 		7A1000092C00000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A1000192C00000100000001 /* Assets.xcassets */; };
+		7A2000012C00000200000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2000112C00000200000001 /* ShareViewController.swift */; };
+		7A2000022C00000200000001 /* Voice2TextShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 7A2000102C00000200000001 /* Voice2TextShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7A2000412C00000200000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A1000602C00000100000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A2000402C00000200000001;
+			remoteInfo = Voice2TextShareExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7A2000232C00000200000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7A2000022C00000200000001 /* Voice2TextShareExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7A1000102C00000100000001 /* Voice2TextMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Voice2TextMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -30,10 +56,22 @@
 		7A1000182C00000100000001 /* TranscriptionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionViewModel.swift; sourceTree = "<group>"; };
 		7A1000192C00000100000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7A10001A2C00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7A2000102C00000200000001 /* Voice2TextShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Voice2TextShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A2000112C00000200000001 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		7A2000122C00000200000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7A2000132C00000200000001 /* Voice2TextShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Voice2TextShareExtension.entitlements; sourceTree = "<group>"; };
+		7A2000142C00000200000001 /* Voice2TextMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Voice2TextMobile.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		7A1000202C00000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A2000202C00000200000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -47,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				7A1000312C00000100000001 /* Voice2TextMobile */,
+				7A2000302C00000200000001 /* Voice2TextShareExtension */,
 				7A1000322C00000100000001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,14 +103,26 @@
 				7A1000172C00000100000001 /* DashScopeClient.swift */,
 				7A1000192C00000100000001 /* Assets.xcassets */,
 				7A10001A2C00000100000001 /* Info.plist */,
+				7A2000142C00000200000001 /* Voice2TextMobile.entitlements */,
 			);
 			path = Voice2TextMobile;
+			sourceTree = "<group>";
+		};
+		7A2000302C00000200000001 /* Voice2TextShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				7A2000112C00000200000001 /* ShareViewController.swift */,
+				7A2000122C00000200000001 /* Info.plist */,
+				7A2000132C00000200000001 /* Voice2TextShareExtension.entitlements */,
+			);
+			path = Voice2TextShareExtension;
 			sourceTree = "<group>";
 		};
 		7A1000322C00000100000001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				7A1000102C00000100000001 /* Voice2TextMobile.app */,
+				7A2000102C00000200000001 /* Voice2TextShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -86,15 +137,34 @@
 				7A1000502C00000100000001 /* Sources */,
 				7A1000202C00000100000001 /* Frameworks */,
 				7A1000512C00000100000001 /* Resources */,
+				7A2000232C00000200000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7A2000422C00000200000001 /* PBXTargetDependency */,
 			);
 			name = Voice2TextMobile;
 			productName = Voice2TextMobile;
 			productReference = 7A1000102C00000100000001 /* Voice2TextMobile.app */;
 			productType = "com.apple.product-type.application";
+		};
+		7A2000402C00000200000001 /* Voice2TextShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A2000802C00000200000001 /* Build configuration list for PBXNativeTarget "Voice2TextShareExtension" */;
+			buildPhases = (
+				7A2000212C00000200000001 /* Sources */,
+				7A2000202C00000200000001 /* Frameworks */,
+				7A2000222C00000200000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Voice2TextShareExtension;
+			productName = Voice2TextShareExtension;
+			productReference = 7A2000102C00000200000001 /* Voice2TextShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -107,6 +177,9 @@
 				LastUpgradeCheck = 1630;
 				TargetAttributes = {
 					7A1000402C00000100000001 = {
+						CreatedOnToolsVersion = 16.3;
+					};
+					7A2000402C00000200000001 = {
 						CreatedOnToolsVersion = 16.3;
 					};
 				};
@@ -126,6 +199,7 @@
 			projectRoot = "";
 			targets = (
 				7A1000402C00000100000001 /* Voice2TextMobile */,
+				7A2000402C00000200000001 /* Voice2TextShareExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -136,6 +210,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A1000092C00000100000001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A2000222C00000200000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,7 +238,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A2000212C00000200000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A2000012C00000200000001 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7A2000422C00000200000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A2000402C00000200000001 /* Voice2TextShareExtension */;
+			targetProxy = 7A2000412C00000200000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7A1000712C00000100000001 /* Debug */ = {
@@ -270,9 +367,12 @@
 		7A1000812C00000100000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_GROUP_IDENTIFIER = group.com.local.voice2textmobile;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Voice2TextMobile/Voice2TextMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YR635ZUC93;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Voice2TextMobile/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -288,9 +388,12 @@
 		7A1000822C00000100000001 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_GROUP_IDENTIFIER = group.com.local.voice2textmobile;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Voice2TextMobile/Voice2TextMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YR635ZUC93;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Voice2TextMobile/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -298,6 +401,48 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.local.voice2textmobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7A2000812C00000200000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APP_GROUP_IDENTIFIER = group.com.local.voice2textmobile;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Voice2TextShareExtension/Voice2TextShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YR635ZUC93;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Voice2TextShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.voice2textmobile.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7A2000822C00000200000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APP_GROUP_IDENTIFIER = group.com.local.voice2textmobile;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Voice2TextShareExtension/Voice2TextShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YR635ZUC93;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Voice2TextShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.voice2textmobile.ShareExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -320,6 +465,15 @@
 			buildConfigurations = (
 				7A1000812C00000100000001 /* Debug */,
 				7A1000822C00000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A2000802C00000200000001 /* Build configuration list for PBXNativeTarget "Voice2TextShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A2000812C00000200000001 /* Debug */,
+				7A2000822C00000200000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

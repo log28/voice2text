@@ -25,6 +25,13 @@ class BatchStatus(str, Enum):
     FAILED = "failed"
 
 
+class OrganizeMode(str, Enum):
+    """摘要整理方式。"""
+
+    PER_FILE = "per_file"
+    COMBINED = "combined"
+
+
 class JobInfo(BaseModel):
     """单个上传文件对应的任务元数据。"""
 
@@ -56,6 +63,7 @@ class BatchInfo(BaseModel):
 
     batch_id: str
     status: BatchStatus = BatchStatus.CREATED
+    organize_mode: OrganizeMode = OrganizeMode.PER_FILE
     jobs: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -66,6 +74,8 @@ class CreateBatchResponse(BaseModel):
 
     batch_id: str
     status: BatchStatus
+    organize_mode: OrganizeMode
+    combined_result_available: bool = False
     jobs: list[JobPublicInfo]
 
 
@@ -74,6 +84,8 @@ class GetBatchResponse(BaseModel):
 
     batch_id: str
     status: BatchStatus
+    organize_mode: OrganizeMode
+    combined_result_available: bool = False
     total_jobs: int
     queued: int
     processing: int
