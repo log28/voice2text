@@ -68,7 +68,7 @@ struct OSSClient {
         }
 
         var components = URLComponents()
-        components.scheme = endpointURL.scheme ?? "https"
+        components.scheme = "https"
         components.host = "\(config.ossBucket).\(endpointHost)"
         components.percentEncodedPath = "/" + percentEncodeObjectPath(objectKey)
         return components

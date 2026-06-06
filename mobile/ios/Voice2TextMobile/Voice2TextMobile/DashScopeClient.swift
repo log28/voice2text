@@ -106,7 +106,7 @@ struct DashScopeClient {
             else {
                 return nil
             }
-            return URL(string: rawURL)
+            return secureURL(from: rawURL)
         }
 
         guard !urls.isEmpty else {
@@ -119,7 +119,8 @@ struct DashScopeClient {
         var texts: [String] = []
 
         for url in urls {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let secureURL = try secureURL(from: url)
+            let (data, response) = try await URLSession.shared.data(from: secureURL)
             guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 throw AppError.requestFailed("下载转写 JSON 失败")
             }
@@ -215,7 +216,7 @@ struct DashScopeClient {
     }
 
     private func dashScopeRequest(path: String, method: String) throws -> URLRequest {
-        let base = config.dashScopeBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        let base = normalizedHTTPSBaseURL(config.dashScopeBaseURL)
         guard let url = URL(string: base + path) else {
             throw AppError.validation("DashScope Base URL 格式不正确")
         }
@@ -225,6 +226,38 @@ struct DashScopeClient {
         request.setValue("Bearer \(config.dashScopeAPIKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return request
+    }
+
+    private func normalizedHTTPSBaseURL(_ rawBaseURL: String) -> String {
+        var base = rawBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        if !base.contains("://") {
+            base = "https://\(base)"
+        }
+        guard var components = URLComponents(string: base) else {
+            return base
+        }
+        components.scheme = "https"
+        return components.url?.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? base
+    }
+
+    private func secureURL(from rawURL: String) -> URL? {
+        guard let url = URL(string: rawURL) else {
+            return nil
+        }
+        return try? secureURL(from: url)
+    }
+
+    private func secureURL(from url: URL) throws -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw AppError.validation("URL 格式不正确")
+        }
+        if components.scheme?.lowercased() == "http" {
+            components.scheme = "https"
+        }
+        guard let secureURL = components.url else {
+            throw AppError.validation("URL 格式不正确")
+        }
+        return secureURL
     }
 
     private func requestJSON(_ request: URLRequest) async throws -> [String: Any] {
