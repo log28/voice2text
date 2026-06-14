@@ -19,16 +19,31 @@ struct ContentView: View {
                         }
                     }
 
-                    Toggle(isOn: organizeTogetherBinding) {
+                    Toggle(isOn: shouldOrganizeBinding) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("合并整理")
-                            Text(viewModel.config.organizeMode == .combined ? "多个音频转录后合并生成一个概要" : "每个音频分别生成概要")
+                            Text("整理总结")
+                            Text(
+                                viewModel.config.shouldOrganize
+                                    ? "转写后调用 Qwen 生成概要、关键点和待办"
+                                    : "关闭后只保存原始转录 Markdown"
+                            )
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .toggleStyle(.switch)
                     .disabled(viewModel.isRunning)
+
+                    Toggle(isOn: organizeTogetherBinding) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("合并整理")
+                            Text(organizeModeDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .disabled(viewModel.isRunning || !viewModel.config.shouldOrganize)
 
                     if let combinedOutputURL = viewModel.combinedOutputURL {
                         HStack(spacing: 12) {
@@ -163,6 +178,22 @@ struct ContentView: View {
                 viewModel.setOrganizeMode(isCombined ? .combined : .perFile)
             }
         )
+    }
+
+    private var shouldOrganizeBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.config.shouldOrganize },
+            set: { viewModel.setShouldOrganize($0) }
+        )
+    }
+
+    private var organizeModeDescription: String {
+        if !viewModel.config.shouldOrganize {
+            return "开启整理总结后可选择逐个整理或合并整理"
+        }
+        return viewModel.config.organizeMode == .combined
+            ? "多个音频转录后合并生成一个概要"
+            : "每个音频分别生成概要"
     }
 
     private var messageBinding: Binding<Bool> {

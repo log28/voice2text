@@ -13,9 +13,15 @@ final class TranscriptionViewModel: ObservableObject {
     }
 
     func saveConfig(_ newConfig: AppConfig) {
+        let shouldClearCombinedOutput =
+            config.shouldOrganize != newConfig.shouldOrganize ||
+            config.organizeMode != newConfig.organizeMode
         do {
             try ConfigStore.save(newConfig)
             config = newConfig
+            if shouldClearCombinedOutput {
+                combinedOutputURL = nil
+            }
             message = "设置已保存"
         } catch {
             message = error.localizedDescription
@@ -29,6 +35,22 @@ final class TranscriptionViewModel: ObservableObject {
 
         var newConfig = config
         newConfig.organizeMode = mode
+        do {
+            try ConfigStore.save(newConfig)
+            config = newConfig
+            combinedOutputURL = nil
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    func setShouldOrganize(_ shouldOrganize: Bool) {
+        guard config.shouldOrganize != shouldOrganize else {
+            return
+        }
+
+        var newConfig = config
+        newConfig.shouldOrganize = shouldOrganize
         do {
             try ConfigStore.save(newConfig)
             config = newConfig
@@ -230,10 +252,10 @@ final class TranscriptionViewModel: ObservableObject {
             .map(\.id)
 
         for id in targetIDs {
-            await processJob(id, shouldOrganizeIndividually: config.organizeMode == .perFile)
+            await processJob(id, shouldOrganizeIndividually: config.shouldOrganize && config.organizeMode == .perFile)
         }
 
-        if config.organizeMode == .combined {
+        if config.shouldOrganize && config.organizeMode == .combined {
             await organizeCombinedTranscript()
         }
     }
@@ -261,10 +283,11 @@ final class TranscriptionViewModel: ObservableObject {
 
             let markdown: String
             if shouldOrganizeIndividually {
-                updateJob(id, status: .organizing, detail: config.shouldOrganize ? "调用 Qwen 整理文本" : "生成 Markdown")
+                updateJob(id, status: .organizing, detail: "调用 Qwen 整理文本")
                 let organized = await dashScope.organize(transcript: result.transcript)
                 markdown = organized.markdown
             } else {
+                updateJob(id, status: .saving, detail: "生成原始转录 Markdown")
                 markdown = rawTranscriptMarkdown(fileName: job.fileName, transcript: result.transcript)
             }
 
